@@ -52,7 +52,7 @@ I am currently testing three open source agent development frameworks:
 
 ## Project Structure
 
-`esp32_api/`  
+`weather-brain/`  
 `├── server/                       # Server root`  
 `│   ├── app/                      # FastAPI application package`  
 `│   │   ├── api/                  # HTTP routes (ingest, timeseries, weather, rag)`  
@@ -123,8 +123,8 @@ Fetches hourly weather data from NOAA or Open-Meteo for comparison with sensor r
 
 Clone the repository and install dependencies:
 
-`git clone https://github.com/postoccupancy/esp32_api.git`  
-`cd esp32_api`  
+`git clone https://github.com/postoccupancy/weather-brain.git`  
+`cd weather-brain`  
 `python -m venv .venv`  
 `. ./.venv/bin/activate`  
 `pip install -r requirements.txt`
@@ -151,8 +151,8 @@ This repository follows a structured documentation layout inspired by best pract
 **Technical Notes**
 
 * [`docs/2025-12-17-open-source-agent-stack.md`](/docs/2025-12-17-open-source-agent-stack.md) — Mapping out the open source agent development toolkit. 
-* [`docs/2026-01-27-rag-setup-and-next-steps.md`](/workspaces/esp32_api/docs/2026-01-27-rag-setup-and-next-steps.md) — Discussion of how the RAG endpoints work, and how I plan to use them in the visualization interface.
-* [`docs/architecture.md`](/workspaces/esp32_api/docs/architecture.md) — Current architecture with explicit Planning, Retrieval, and UI Execution layers.
+* [`docs/2026-01-27-rag-setup-and-next-steps.md`](/workspaces/weather-brain/docs/2026-01-27-rag-setup-and-next-steps.md) — Discussion of how the RAG endpoints work, and how I plan to use them in the visualization interface.
+* [`docs/architecture.md`](/workspaces/weather-brain/docs/architecture.md) — Current architecture with explicit Planning, Retrieval, and UI Execution layers.
 
 
 
@@ -195,9 +195,13 @@ Covered areas:
 Run the test suite from the root `.venv`:
 
 ```bash
-cd esp32_api
+cd weather-brain
 . ./.venv/bin/activate
-python -m pytest /workspaces/esp32_api/tests
+python -m pytest /workspaces/weather-brain/tests
+```
+
+```PowerShell
+.\.venv\Scripts\Activate.ps1
 ```
 
 Current result on this branch: `21 passed`
