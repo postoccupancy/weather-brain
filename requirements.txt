@@ -146,7 +146,7 @@ tzlocal==5.3.1
 urllib3==2.6.2
 uuid_utils==0.12.0
 uvicorn==0.38.0
-uvloop==0.22.1
+uvloop==0.22.1; sys_platform != "win32"
 watchfiles==1.1.1
 websockets==15.0.1
 wrapt==1.17.3
