@@ -40,5 +40,4 @@ python -m pytest tests/test_query_planner.py -k "test_name"
 ## Configuration
 - External dependencies are env-driven.
 - Copy `.env.example` to `.env` at the repo root before running locally.
-- Key variables include Supabase connection strings, Ollama model settings, embedding dimensions, and auth tokens.
-
+- Key variables include the PostgreSQL DATABASE_URL, Ollama model settings, embedding dimensions, and auth tokens.

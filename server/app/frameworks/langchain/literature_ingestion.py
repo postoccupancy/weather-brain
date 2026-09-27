@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+from app.database import sqlalchemy_database_url
+
 import hashlib
 
 from langchain_core.documents import Document
-from langchain_postgres import PGVector
+from app.frameworks.langchain.postgres import ExistingPGVector
 
 from app.frameworks.langchain.runtime import get_embeddings
 from app.providers.ollama.config import (
-    PGVECTOR_CONNECTION_STRING,
     RAG_LITERATURE_TABLE,
-    require_env,
 )
 from app.retrieval.vector.ingest_docs import build_raw_docs, clean_text
 
@@ -30,12 +30,13 @@ def _chunk_text(text: str, *, chunk_size: int = 1200, overlap: int = 150) -> lis
     return chunks
 
 
-def _literature_vectorstore() -> PGVector:
-    verified = require_env("PGVECTOR_CONNECTION_STRING", PGVECTOR_CONNECTION_STRING)
-    return PGVector(
+def _literature_vectorstore() -> ExistingPGVector:
+    verified = sqlalchemy_database_url()
+    return ExistingPGVector(
         embeddings=get_embeddings(),
         collection_name=RAG_LITERATURE_TABLE,
         connection=verified,
+        create_extension=False,
     )
 
 

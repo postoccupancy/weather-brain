@@ -6,7 +6,7 @@ import time
 from app.retrieval.vector.service import index_snapshots
 
 
-DATABASE_URL = os.getenv("SUPABASE_DB_URL_IPV4", "")
+from app.database import DATABASE_URL
 SNAPSHOT_DATA_TABLE = os.getenv("SNAPSHOT_DATA_TABLE", "")
 
 

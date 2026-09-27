@@ -25,7 +25,7 @@ router = APIRouter()
 class QueryReq(BaseModel):
     question: str
 
-DATABASE_URL = os.getenv("SUPABASE_DB_URL_IPV4", "")
+from app.database import DATABASE_URL
 
 # this one is for browser use with a query param
 @router.get("/query", dependencies=[Depends(require_rag_token)])

@@ -21,9 +21,9 @@ from app.api.timeseries_router import router as timeseries_router
 from app.api.weather_router import router as weather_router
 from app.retrieval.vector.index_scheduler import index_loop
 from app.retrieval.structured.sql_queries import (
-    insert_supabase,
-    supabase as supabase_client,
+    insert_postgres,
 )
+from app.database import DATABASE_URL
 
 app = FastAPI()
 
@@ -57,7 +57,7 @@ latest_reading = None
 
 @app.get("/ping")
 def ping():
-    return {"pong": True, "sqlite": True, "supabase": bool(supabase_client)}
+    return {"pong": True, "database_configured": bool(DATABASE_URL)}
 
 @app.get("/latest", dependencies=[Depends(require_status_token)])
 def get_latest():
@@ -77,15 +77,22 @@ async def ingest(payload: IngestPayload, request: Request):
     safe_log = {"device_id": data.get("device_id"), "ts": data.get("ts")}
     print(time.strftime("[%Y-%m-%d %H:%M:%S]"), safe_log)
 
-    # Supabase write (if configured)
-    sb_status = None
-    if supabase_client:
-        sb_res = insert_supabase(data)
-        sb_status = "ok" if sb_res and getattr(sb_res, "data", None) else "error"
+    if not DATABASE_URL:
+        return JSONResponse(
+            status_code=503,
+            content={"ok": False, "postgres": "error", "detail": "Database is not configured"},
+        )
+
+    result = insert_postgres(data)
+    if not result or not result.data:
+        return JSONResponse(
+            status_code=503,
+            content={"ok": False, "postgres": "error", "detail": "Database write failed"},
+        )
 
     latest_reading = data
 
-    return {"ok": True, "supabase": sb_status}
+    return {"ok": True, "postgres": "ok"}
 
 if __name__ == "__main__":
     import uvicorn

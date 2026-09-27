@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.database import sqlalchemy_database_url
+
 from functools import lru_cache
 
 from sqlalchemy import create_engine
@@ -34,15 +36,8 @@ from app.providers.ollama.config import (
     OLLAMA_CHAT_MODEL,
     OLLAMA_EMBED_MODEL,
     OLLAMA_HOST,
-    PGVECTOR_CONNECTION_STRING,
     RAG_LITERATURE_TABLE,
     RAW_DATA_TABLE,
-    SUPABASE_DB,
-    SUPABASE_DB_PASSWORD,
-    SUPABASE_DB_PORT,
-    SUPABASE_IPV4_HOST,
-    SUPABASE_USER_NAME,
-    require_env,
 )
 
 
@@ -163,7 +158,7 @@ def get_llamaindex_embed_model() -> OllamaEmbedding:
 
 @lru_cache(maxsize=1)
 def get_sql_only_llamaindex_engine():
-    verified = require_env("PGVECTOR_CONNECTION_STRING", PGVECTOR_CONNECTION_STRING)
+    verified = sqlalchemy_database_url()
 
     Settings.llm = get_llamaindex_llm()
     Settings.embed_model = get_llamaindex_embed_model()
@@ -180,11 +175,9 @@ def get_sql_only_llamaindex_engine():
 @lru_cache(maxsize=1)
 def get_vector_index_from_postgres() -> VectorStoreIndex:
     pgvs = PGVectorStore.from_params(
-        database=SUPABASE_DB,
-        host=SUPABASE_IPV4_HOST,
-        password=SUPABASE_DB_PASSWORD,
-        port=SUPABASE_DB_PORT,
-        user=SUPABASE_USER_NAME,
+        connection_string=sqlalchemy_database_url(),
+        async_connection_string=sqlalchemy_database_url(),
+        perform_setup=False,
         table_name=RAG_LITERATURE_TABLE,
         embed_dim=768,
     )
@@ -199,7 +192,7 @@ def get_vector_index_from_postgres() -> VectorStoreIndex:
 
 @lru_cache(maxsize=1)
 def get_llamaindex_query_engine():
-    verified = require_env("PGVECTOR_CONNECTION_STRING", PGVECTOR_CONNECTION_STRING)
+    verified = sqlalchemy_database_url()
 
     Settings.llm = get_llamaindex_llm()
     Settings.embed_model = get_llamaindex_embed_model()

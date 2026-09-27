@@ -1,7 +1,7 @@
 # Agent Context
 
 ## Last Updated
-- 2026-07-20
+- 2026-09-26
 
 ## Workspace Scope
 - Multi-root workspace covering `esp32_api`, `esp32_ui`, and `b2b-dashboard-demo`.
@@ -9,7 +9,32 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Operate `device/` as an indoor counterpart to electric-sky with BME280 and INMP441 acquisition, a local observability dashboard, batched OSC, and optional raw PCM transport to signal-router.
+- Commit the completed PostgreSQL migration and ingestion error handling at the user's request.
+
+## Commit Handoff
+- Scope: direct PostgreSQL configuration/access, vector-store preservation, dependency cleanup, ingestion HTTP errors, regression tests, and documentation.
+- Validation: 19 PostgreSQL tests passed; diff whitespace check passed. The full-suite baseline auth failure is documented below.
+- `.env` is ignored and excluded. No push is requested. Live database validation remains outstanding.
+- Commit is being created on `main` from parent `d91e7707cf9a0b0176cfa998eaf335b67bb77ed0`; use `git log -1` for the resulting commit ID.
+
+## Ingestion Error Handling Follow-up
+- `/ingest` returns HTTP 503 with `ok: false`, `postgres: error`, and a generic detail when a write fails or database configuration is missing. Successful writes still return HTTP 200.
+- Failed requests preserve the previous `latest_reading`; only persisted readings update `/latest`.
+- Updated endpoint regression tests and README. All 19 PostgreSQL tests pass; `git diff --check` passes. No live database writes were performed.
+- Next: local connectivity validation remains outstanding; prior `.env` observations below refer to the migration turn, before the user's subsequent edits.
+- Branch remains `main` at `d91e7707cf9a0b0176cfa998eaf335b67bb77ed0`; no commit or push.
+
+## PostgreSQL Migration
+- Shared `server/app/database.py` reads only `DATABASE_URL`; vector/SQLAlchemy URLs use psycopg 3 and the `public,extensions` session search path.
+- Structured inserts/reads now use parameterized psycopg queries; callers and tests use PostgreSQL names. Both requirements files drop the client and its five dedicated packages.
+- LlamaIndex setup is disabled. LangChain uses an existing-store adapter that skips table creation and validates existing collections without creating them.
+- Real `.env` is unchanged and still contains legacy connection variables, with no `DATABASE_URL`. User must supply the local password in the new URL before live validation.
+- Real mapping is `SNAPSHOT_DATA_TABLE=snapshots`, `RAG_SNAPSHOT_TABLE=esp32_rag`, `RAG_LITERATURE_TABLE=rag_literature_chunks`. LlamaIndex snapshots therefore expect `data_esp32_rag`, absent from the supplied migrated-table list; preserve this and resolve before using that path. LangChain interprets `esp32_rag` as a collection name.
+- No database connections, data/schema changes, indexing, deployment changes, commits, or pushes were performed. The existing startup indexer remains enabled; do not launch it merely to validate connectivity.
+- Baseline tests: 26 passed, one pre-existing failure in `test_require_status_token_rejects_missing_header` (direct call leaves a FastAPI Query default).
+- Branch `main`, latest commit `d91e7707cf9a0b0176cfa998eaf335b67bb77ed0`.
+- Final validation: 44 tests passed, with the same one pre-existing auth failure (18 added migration cases pass). Python compileall passed; diff whitespace check passed after removing one trailing space.
+- Next: user configures `DATABASE_URL` for a read-only local smoke check. The code refactor is complete; live connectivity and existing collection contents have not been verified.
 
 ## Current Device Work
 - Target: Espressif ESP32-S3-DevKitC-1 with ESP32-S3-WROOM-1-N8R8 (8 MB flash, 8 MB octal PSRAM).

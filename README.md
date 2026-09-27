@@ -10,7 +10,7 @@ This API:
 The MVP prototype uses an Espressif ESP32-S3-DevKitC-1 microcontroller with an AM2320 Digital Temperature & Humidity Sensor (I2C interface). 
 
 ### Database 
-The PostgreSQL database is hosted on a Supabase free tier plan with the `pgvector` extension that enables vector storage and similarity search. 
+The application connects directly to local PostgreSQL 17, with pgvector 0.8.0 installed in the `extensions` schema for vector storage and similarity search.
 
 ### Backend Framework
 The backend API uses the Python FastAPI framework, hosted in a Google Cloud Run serverless container on a free tier plan.
@@ -115,9 +115,9 @@ Fetches hourly weather data from NOAA or Open-Meteo for comparison with sensor r
 
 * **Python 3.11+**
 
-* **PostgreSQL** instance with credentials available (e.g. Supabase)
+* **PostgreSQL 17** instance with credentials available
 
-* `pgvector` extension installed in PostgreSQL for vector embeddings (in Supabase UI, install `vector` under Database > Extensions)
+* `pgvector` extension and the migrated tables already present; application startup does not create vector tables
 
 ### Local Setup
 
@@ -141,6 +141,30 @@ If you are opening the repo inside the `orcasound-next` devcontainer, keep using
 ## Configuration
 
 Environment variables are used to control database connections. Copy `.env.example` to `.env` and fill in the required values.
+
+Set `DATABASE_URL=postgresql://postgres:<password>@localhost:5432/postgres`,
+percent-encoding special characters in the password. This is the only connection
+variable: psycopg uses it directly, and SQLAlchemy/LangChain/LlamaIndex derive
+psycopg 3 URLs from it. Vector connections include `public,extensions` in their
+session search path. Old provider-specific connection variables and
+`PGVECTOR_CONNECTION_STRING` are no longer read.
+
+Keep your existing table and collection settings. `SNAPSHOT_DATA_TABLE` names
+the snapshot archive (`snapshots`). LlamaIndex prefixes the RAG table settings
+with `data_`, so `RAG_LITERATURE_TABLE=rag_literature_chunks` selects
+`public.data_rag_literature_chunks`. LangChain instead treats the RAG settings as
+collection names inside `langchain_pg_collection` and `langchain_pg_embedding`.
+Missing vector tables or collections are reported, not created. The example
+`RAG_SNAPSHOT_TABLE=rag_snapshots` would require `data_rag_snapshots` for
+LlamaIndex; confirm that mapping before using that backend for snapshots.
+
+`/ping` reports `database_configured` without opening a connection; this indicates
+configuration, not reachability. `/ingest` reports its database write status under
+`postgres`: successful writes return HTTP 200 with `ok: true`; failed writes or
+missing database configuration return HTTP 503 with `ok: false`. Failed requests
+leave `/latest` unchanged. Existing indexing endpoints
+and the hourly startup indexer retain their behavior; starting the API can index
+recent readings. No indexing is needed to migrate the existing vector data.
 
 
 

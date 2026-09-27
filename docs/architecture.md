@@ -26,7 +26,7 @@ flowchart TD
     P --> R1[Structured Retrieval<br/>raw readings, summaries, aggregates]
     P --> R2[Semantic Retrieval<br/>snapshots, standards, literature]
 
-    R1 --> D1[(Postgres / Supabase<br/>readings + snapshots)]
+    R1 --> D1[(PostgreSQL<br/>readings + snapshots)]
     R2 --> D2[(pgvector / document store)]
 
     D1 --> S[Grounded synthesis]
@@ -129,7 +129,7 @@ server/app/
 
 Structured retrieval now lives under:
 
-* `retrieval/structured/sql_queries.py` for low-level SQL and Supabase access
+* `retrieval/structured/sql_queries.py` for parameterized direct PostgreSQL access
 * `retrieval/structured/timeseries.py` for app-level time-series retrieval workflows
 * `retrieval/structured/weather.py` for app-level weather retrieval workflows
 

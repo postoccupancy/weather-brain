@@ -10,7 +10,7 @@ from psycopg import sql
 
 DEVICE_ID = os.getenv("DEVICE_ID", "")
 RAW_DATA_TABLE = os.getenv("RAW_DATA_TABLE", "")
-DATABASE_URL = os.getenv("SUPABASE_DB_URL_IPV4", "")
+from app.database import DATABASE_URL
 
 
 @dataclass(frozen=True)

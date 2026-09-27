@@ -1,47 +1,56 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
 import psycopg
+from fastapi.encoders import jsonable_encoder
 from psycopg import sql
 from psycopg.rows import dict_row
-from supabase import create_client
+from psycopg.types.json import Jsonb
+
+from app.database import DATABASE_URL
 
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
-SUPABASE_DB_URL_IPV4 = os.getenv("SUPABASE_DB_URL_IPV4", "")
 RAW_DATA_TABLE = os.getenv("RAW_DATA_TABLE", "readings")
 SNAPSHOT_DATA_TABLE = os.getenv("SNAPSHOT_DATA_TABLE", "snapshots")
 ALLOWED_TABLES = {RAW_DATA_TABLE, SNAPSHOT_DATA_TABLE}
 
 
-supabase = None
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("[supabase] client initialized")
-    except Exception as exc:
-        print("[supabase] init failed:", repr(exc))
-        supabase = None
-else:
-    print("[supabase] missing DATABASE_URL or SUPABASE_*KEY; skipping client")
+@dataclass
+class InsertResult:
+    data: list[dict[str, Any]]
 
 
-def insert_supabase(row: dict[str, Any]):
-    if supabase is None:
+def insert_postgres(row: dict[str, Any]) -> InsertResult | None:
+    if not DATABASE_URL or RAW_DATA_TABLE not in ALLOWED_TABLES:
         return None
     try:
-        res = supabase.table(RAW_DATA_TABLE).insert([row]).execute()
-        print("[supabase] insert data:", getattr(res, "data", None))
-        return res
+        if row:
+            query = sql.SQL("INSERT INTO {table} ({columns}) VALUES ({values}) RETURNING *").format(
+                table=sql.Identifier(RAW_DATA_TABLE),
+                columns=sql.SQL(", ").join(map(sql.Identifier, row)),
+                values=sql.SQL(", ").join(sql.Placeholder() for _ in row),
+            )
+        else:
+            query = sql.SQL("INSERT INTO {} DEFAULT VALUES RETURNING *").format(
+                sql.Identifier(RAW_DATA_TABLE)
+            )
+        with psycopg.connect(DATABASE_URL) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                values = [
+                    Jsonb(value) if isinstance(value, (dict, list)) else value
+                    for value in row.values()
+                ]
+                cur.execute(query, values)
+                return InsertResult(data=jsonable_encoder(cur.fetchall()))
     except Exception as exc:
-        print("[supabase] insert error:", repr(exc))
+        print("[postgres] insert error:", repr(exc))
         return None
 
 
-def get_supabase(
+def get_postgres(
     *,
     table: str = RAW_DATA_TABLE,
     device_id: Optional[str] = None,
@@ -52,38 +61,47 @@ def get_supabase(
     order_desc: bool = True,
 ) -> list[dict[str, Any]]:
     if table not in ALLOWED_TABLES:
-        print(f"[supabase] get_supabase rejected invalid table: {table!r}")
+        print(f"[postgres] get_postgres rejected invalid table: {table!r}")
         return []
-    if supabase is None:
+    if not DATABASE_URL:
         return []
     try:
         time_column = "window_start" if table == SNAPSHOT_DATA_TABLE else "ts"
-        query = (
-            supabase.table(table)
-            .select("*")
-            .order(time_column, desc=order_desc)
-            .limit(limit)
-            .range(offset, offset + limit - 1)
-        )
+        clauses: list[sql.Composable] = []
+        params: list[Any] = []
         if device_id is not None:
-            query = query.eq("device_id", device_id)
+            clauses.append(sql.SQL("device_id = %s"))
+            params.append(device_id)
         if start_ts is not None:
-            query = query.gte(time_column, start_ts)
+            clauses.append(sql.SQL("{} >= %s::timestamptz").format(sql.Identifier(time_column)))
+            params.append(start_ts)
         if end_ts is not None:
-            query = query.lte(time_column, end_ts)
-        response = query.execute()
-        rows = getattr(response, "data", []) or []
+            clauses.append(sql.SQL("{} <= %s::timestamptz").format(sql.Identifier(time_column)))
+            params.append(end_ts)
+        where = (
+            sql.SQL("WHERE ") + sql.SQL(" AND ").join(clauses)
+            if clauses else sql.SQL("")
+        )
+        query = sql.SQL("SELECT * FROM {table} {where} ORDER BY {time} {direction} LIMIT %s OFFSET %s").format(
+            table=sql.Identifier(table), where=where, time=sql.Identifier(time_column),
+            direction=sql.SQL("DESC" if order_desc else "ASC"),
+        )
+        params.extend([limit, offset])
+        with psycopg.connect(DATABASE_URL) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(query, params)
+                rows = jsonable_encoder(cur.fetchall())
         print(
-            f"[supabase] get_supabase: got {len(rows)} rows from '{table}' "
+            f"[postgres] get_postgres: got {len(rows)} rows from '{table}' "
             f"(time_column={time_column})"
         )
         return rows
     except Exception as exc:
-        print("[supabase] get_supabase error:", repr(exc))
+        print("[postgres] get_postgres error:", repr(exc))
         return []
 
 
-def get_supabase_aggregated(
+def get_postgres_aggregated(
     *,
     table: str = RAW_DATA_TABLE,
     bucket_seconds: int,
@@ -96,12 +114,12 @@ def get_supabase_aggregated(
     aggregate_mode: Literal["full", "lite"] = "full",
 ) -> list[dict[str, Any]]:
     """Return bucketed sensor aggregates from the raw readings table."""
-    if not SUPABASE_DB_URL_IPV4:
-        print("[supabase] aggregate query skipped: SUPABASE_DB_URL_IPV4 is missing")
+    if not DATABASE_URL:
+        print("[postgres] aggregate query skipped: DATABASE_URL is missing")
         return []
 
     if table not in ALLOWED_TABLES:
-        print(f"[supabase] get_supabase_aggregated rejected invalid table: {table!r}")
+        print(f"[postgres] get_postgres_aggregated rejected invalid table: {table!r}")
         return []
 
     if bucket_seconds < 1:
@@ -198,17 +216,17 @@ def get_supabase_aggregated(
     params.update(where_params)
 
     try:
-        with psycopg.connect(SUPABASE_DB_URL_IPV4) as conn:
+        with psycopg.connect(DATABASE_URL) as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(query, params)
                 rows = cur.fetchall()
                 print(
-                    f"[supabase] get_supabase_aggregated: got {len(rows)} rows from '{table}' "
+                    f"[postgres] get_postgres_aggregated: got {len(rows)} rows from '{table}' "
                     f"(bucket_seconds={bucket_seconds})"
                 )
                 return [dict(row) for row in rows]
     except Exception as exc:
-        print("[supabase] get_supabase_aggregated error:", repr(exc))
+        print("[postgres] get_postgres_aggregated error:", repr(exc))
         return []
 
 
@@ -237,7 +255,7 @@ def _build_timeseries_where_clause(
     return sql.SQL("where ") + sql.SQL(" and ").join(clauses), params
 
 
-def get_supabase_summary(
+def get_postgres_summary(
     *,
     table: str = RAW_DATA_TABLE,
     start_ts: Optional[str] = None,
@@ -245,12 +263,12 @@ def get_supabase_summary(
     device_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Return lightweight summary metrics for dashboard cards."""
-    if not SUPABASE_DB_URL_IPV4:
-        print("[supabase] summary query skipped: SUPABASE_DB_URL_IPV4 is missing")
+    if not DATABASE_URL:
+        print("[postgres] summary query skipped: DATABASE_URL is missing")
         return {}
 
     if table not in ALLOWED_TABLES:
-        print(f"[supabase] get_supabase_summary rejected invalid table: {table!r}")
+        print(f"[postgres] get_postgres_summary rejected invalid table: {table!r}")
         return {}
 
     where_clause, where_params = _build_timeseries_where_clause(
@@ -281,17 +299,16 @@ def get_supabase_summary(
     )
 
     try:
-        with psycopg.connect(SUPABASE_DB_URL_IPV4) as conn:
+        with psycopg.connect(DATABASE_URL) as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(query, where_params)
                 row = cur.fetchone()
                 summary = dict(row) if row is not None else {}
                 print(
-                    f"[supabase] get_supabase_summary: got summary from '{table}' "
+                    f"[postgres] get_postgres_summary: got summary from '{table}' "
                     f"(count={summary.get('count', 0)})"
                 )
                 return summary
     except Exception as exc:
-        print("[supabase] get_supabase_summary error:", repr(exc))
+        print("[postgres] get_postgres_summary error:", repr(exc))
         return {}
-

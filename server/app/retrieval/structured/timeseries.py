@@ -4,9 +4,9 @@ import os
 from fastapi import HTTPException
 
 from app.retrieval.structured.sql_queries import (
-    get_supabase,
-    get_supabase_aggregated,
-    get_supabase_summary,
+    get_postgres,
+    get_postgres_aggregated,
+    get_postgres_summary,
 )
 
 
@@ -36,7 +36,7 @@ def fetch_timeseries(
                 status_code=400,
                 detail=f"Aggregation currently supports only table='{RAW_DATA_TABLE}'",
             )
-        aggregates = get_supabase_aggregated(
+        aggregates = get_postgres_aggregated(
             table=table,
             bucket_seconds=bucket,
             start_ts=start_ts,
@@ -54,7 +54,7 @@ def fetch_timeseries(
             "aggregates": aggregates,
         }
 
-    rows = get_supabase(
+    rows = get_postgres(
         table=table,
         limit=limit,
         offset=offset,
@@ -82,7 +82,7 @@ def fetch_timeseries_summary(
             detail=f"Summary currently supports only table='{RAW_DATA_TABLE}'",
         )
 
-    summary = get_supabase_summary(
+    summary = get_postgres_summary(
         table=table,
         start_ts=start_ts,
         end_ts=end_ts,

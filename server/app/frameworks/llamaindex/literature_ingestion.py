@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.database import sqlalchemy_database_url
+
 from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import TextNode
@@ -8,11 +10,6 @@ from llama_index.vector_stores.postgres import PGVectorStore
 from app.frameworks.llamaindex.runtime import get_llamaindex_embed_model
 from app.providers.ollama.config import (
     RAG_LITERATURE_TABLE,
-    SUPABASE_DB,
-    SUPABASE_DB_PASSWORD,
-    SUPABASE_DB_PORT,
-    SUPABASE_IPV4_HOST,
-    SUPABASE_USER_NAME,
 )
 from app.retrieval.vector.ingest_docs import build_raw_docs, clean_text
 
@@ -30,11 +27,9 @@ def ingest_literature_with_llamaindex() -> dict[str, object]:
         return {"chunks_indexed": 0, "note": "No literature documents were loaded."}
 
     vector_store = PGVectorStore.from_params(
-        database=SUPABASE_DB,
-        host=SUPABASE_IPV4_HOST,
-        password=SUPABASE_DB_PASSWORD,
-        port=SUPABASE_DB_PORT,
-        user=SUPABASE_USER_NAME,
+        connection_string=sqlalchemy_database_url(),
+        async_connection_string=sqlalchemy_database_url(),
+        perform_setup=False,
         table_name=RAG_LITERATURE_TABLE,
         embed_dim=768,
     )

@@ -25,11 +25,11 @@ def test_fetch_timeseries_rejects_bucketing_snapshots() -> None:
 def test_fetch_timeseries_uses_aggregated_query_for_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_get_supabase_aggregated(**kwargs: object) -> list[dict[str, object]]:
+    def fake_get_postgres_aggregated(**kwargs: object) -> list[dict[str, object]]:
         captured.update(kwargs)
         return [{"bucket_start": "2026-04-07T00:00:00Z", "count": 4}]
 
-    monkeypatch.setattr(timeseries, "get_supabase_aggregated", fake_get_supabase_aggregated)
+    monkeypatch.setattr(timeseries, "get_postgres_aggregated", fake_get_postgres_aggregated)
 
     result = timeseries.fetch_timeseries(
         table=timeseries.RAW_DATA_TABLE,
@@ -59,11 +59,11 @@ def test_fetch_timeseries_uses_aggregated_query_for_bucket(monkeypatch: pytest.M
 def test_fetch_timeseries_uses_row_query_without_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_get_supabase(**kwargs: object) -> list[dict[str, object]]:
+    def fake_get_postgres(**kwargs: object) -> list[dict[str, object]]:
         captured.update(kwargs)
         return [{"ts": "2026-04-07T00:00:00Z", "temp_f": 72.0}]
 
-    monkeypatch.setattr(timeseries, "get_supabase", fake_get_supabase)
+    monkeypatch.setattr(timeseries, "get_postgres", fake_get_postgres)
 
     result = timeseries.fetch_timeseries(
         table=timeseries.RAW_DATA_TABLE,
@@ -91,11 +91,11 @@ def test_fetch_timeseries_summary_rejects_snapshot_table() -> None:
 
 
 def test_fetch_timeseries_summary_returns_summary(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_get_supabase_summary(**kwargs: object) -> dict[str, object]:
+    def fake_get_postgres_summary(**kwargs: object) -> dict[str, object]:
         assert kwargs["table"] == timeseries.RAW_DATA_TABLE
         return {"count": 12, "temp_f_avg": 68.4}
 
-    monkeypatch.setattr(timeseries, "get_supabase_summary", fake_get_supabase_summary)
+    monkeypatch.setattr(timeseries, "get_postgres_summary", fake_get_postgres_summary)
 
     result = timeseries.fetch_timeseries_summary(
         table=timeseries.RAW_DATA_TABLE,

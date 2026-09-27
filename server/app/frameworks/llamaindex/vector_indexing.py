@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.database import sqlalchemy_database_url
+
 from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.schema import TextNode
 from llama_index.vector_stores.postgres import PGVectorStore
@@ -8,11 +10,6 @@ from app.frameworks.llamaindex.runtime import get_llamaindex_embed_model
 from app.providers.ollama.config import (
     RAG_SNAPSHOT_TABLE,
     SNAPSHOT_DATA_TABLE,
-    SUPABASE_DB,
-    SUPABASE_DB_PASSWORD,
-    SUPABASE_DB_PORT,
-    SUPABASE_IPV4_HOST,
-    SUPABASE_USER_NAME,
 )
 from app.retrieval.vector.indexing import (
     archive_documents_in_database,
@@ -23,11 +20,9 @@ from app.retrieval.vector.snapshots import build_snapshot_records
 
 def _snapshot_vector_store() -> PGVectorStore:
     return PGVectorStore.from_params(
-        database=SUPABASE_DB,
-        host=SUPABASE_IPV4_HOST,
-        password=SUPABASE_DB_PASSWORD,
-        port=SUPABASE_DB_PORT,
-        user=SUPABASE_USER_NAME,
+        connection_string=sqlalchemy_database_url(),
+        async_connection_string=sqlalchemy_database_url(),
+        perform_setup=False,
         table_name=RAG_SNAPSHOT_TABLE,
         embed_dim=768,
     )

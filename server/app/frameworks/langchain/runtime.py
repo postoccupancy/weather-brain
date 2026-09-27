@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+from app.database import sqlalchemy_database_url
+
 from functools import lru_cache
 
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_postgres import PGVector
+from app.frameworks.langchain.postgres import ExistingPGVector
 
 from app.providers.ollama.config import (
     OLLAMA_CHAT_MODEL,
     OLLAMA_EMBED_MODEL,
     OLLAMA_HOST,
-    PGVECTOR_CONNECTION_STRING,
     RAG_K,
     RAG_SNAPSHOT_TABLE,
-    require_env,
 )
 
 
@@ -35,13 +35,14 @@ def get_llm() -> ChatOllama:
 
 
 @lru_cache(maxsize=1)
-def get_vectorstore() -> PGVector:
-    verified = require_env("PGVECTOR_CONNECTION_STRING", PGVECTOR_CONNECTION_STRING)
+def get_vectorstore() -> ExistingPGVector:
+    verified = sqlalchemy_database_url()
 
-    return PGVector(
+    return ExistingPGVector(
         embeddings=get_embeddings(),
         collection_name=RAG_SNAPSHOT_TABLE,
         connection=verified,
+        create_extension=False,
     )
 
 
