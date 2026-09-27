@@ -10,7 +10,6 @@ from llama_index.core import (
     Document as LlamaDocument,
     PromptTemplate,
     Settings,
-    SQLDatabase,
     StorageContext,
     VectorStoreIndex,
 )
@@ -25,12 +24,15 @@ from llama_index.core.query_engine.sql_join_query_engine import (
     SQLAugmentQueryTransform,
 )
 from llama_index.core.response_synthesizers.type import ResponseMode
-from llama_index.core.retrievers import VectorIndexAutoRetriever
 from llama_index.core.tools import QueryEngineTool
 from llama_index.core.vector_stores import MetadataInfo, VectorStoreInfo
-from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.llms.ollama import Ollama
-from llama_index.vector_stores.postgres import PGVectorStore
+from app.frameworks.llamaindex.diagnostics import (
+    TimedOllama as Ollama,
+    TimedOllamaEmbedding as OllamaEmbedding,
+    TimedPGVectorStore as PGVectorStore,
+    TimedSQLDatabase as SQLDatabase,
+    TimedVectorIndexAutoRetriever as VectorIndexAutoRetriever,
+)
 
 from app.providers.ollama.config import (
     OLLAMA_CHAT_MODEL,
@@ -118,6 +120,15 @@ SQL Result: {sql_response_str}
 LOOKUP:"""
 )
 
+def no_literature_lookup(query_bundle) -> bool:
+    """Recognize the no-lookup sentinel without changing real lookup queries."""
+    value = query_bundle.query_str.strip()
+    prefix, separator, remainder = value.partition(":")
+    if separator and prefix.strip().casefold() == "lookup":
+        value = remainder.strip()
+    return value.casefold() == "none"
+
+
 SQL_VECTOR_SYNTHESIS_PROMPT = PromptTemplate(
     """You are an expert data analyst. Answer the question using the SQL data and the provided Standards context.
 
@@ -145,6 +156,7 @@ def get_llamaindex_llm() -> Ollama:
         model=OLLAMA_CHAT_MODEL,
         base_url=OLLAMA_HOST,
         request_timeout=120.0,
+        context_window=8192,
     )
 
 
@@ -259,6 +271,7 @@ def get_llamaindex_query_engine():
 
     sql_augment_query_transform = SQLAugmentQueryTransform(
         sql_augment_transform_prompt=QUERY_TRANSFORM_PROMPT,
+        check_stop_parser=no_literature_lookup,
     )
 
     engine = SQLAutoVectorQueryEngine(

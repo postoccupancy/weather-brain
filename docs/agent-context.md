@@ -1,7 +1,7 @@
 # Agent Context
 
 ## Last Updated
-- 2026-09-26
+- 2026-09-27
 
 ## Workspace Scope
 - Multi-root workspace covering `esp32_api`, `esp32_ui`, and `b2b-dashboard-demo`.
@@ -9,7 +9,32 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Commit the completed PostgreSQL migration and ingestion error handling at the user's request.
+- Commit the completed RAG diagnostics, no-lookup fix, and existing 8192 context settings at the user's request.
+
+## Diagnostics Commit Handoff
+- Scope includes timing/token logs, robust no-lookup parsing, regression tests, documentation, and both existing model context settings.
+- Validation remains 22 focused tests passing; full suite 67 passed with one pre-existing auth failure. Diff whitespace check passes.
+- `.env` remains ignored and excluded. No push requested. Next: restart FastAPI and measure the corrected no-lookup path live.
+- Commit being created on `main` from parent `ee0aa6e`; use `git log -1` for its resulting ID.
+
+## No-lookup and Token Metrics Follow-up
+- User's live run measured six LLM calls and 36.997 seconds before this fix.
+- `no_literature_lookup` is passed as `SQLAugmentQueryTransform.check_stop_parser`. Bare `None` and `LOOKUP: None` are matched case-insensitively with whitespace normalization; real query strings are untouched.
+- No-lookup regression uses the real installed engine with external I/O mocked: three LLM calls, no literature retrieval/planning/synthesis or combined synthesis, existing SQL response returned. Real lookups retain six calls.
+- `llm_call` logs include available `prompt_tokens`, `output_tokens`, `prompt_eval_ms`, and `generation_ms`, read from raw Ollama response metadata. Missing values are omitted; nanoseconds converted to milliseconds; no new requests or response mutations.
+- LlamaIndex context remains 8192, verified against model call options. No further pipeline optimization, schema, prompt or model changes.
+- Focused diagnostics tests: 22 passed. No post-fix live timing measured; restart the API to clear its cached query engine before verifying. Branch `main`, base commit `ee0aa6e`; no commit/push requested.
+- Final validation: full suite 67 passed with the same pre-existing auth failure; compileall and diff whitespace checks passed.
+
+## LlamaIndex Performance Diagnostics
+- Added removable standard-library timing/logging adapters in `server/app/frameworks/llamaindex/diagnostics.py`, middleware registration in `main.py`, and engine/query scopes in `answering.py`.
+- Logs include request IDs, total duration, actual synchronous LLM/embedding call counts, purpose/duration, SQL generation, SQLAlchemy PostgreSQL execution, query/fetch, vector retrieval and synthesis. Durations are inclusive; no payloads are added to logs.
+- Offline tests of the installed engine confirm six sequential LLM calls on SQL plus literature: selection, SQL generation, transformation, retrieval planning, literature synthesis, combined synthesis. Cold initialization adds a discarded placeholder-document embedding (two embeddings cold, one warm in the tested path).
+- Confirmed `LOOKUP: None` does not match the installed stop parser's exact `none` check and continues to literature retrieval. This and other possible redundant work remain unchanged.
+- Details and removal instructions: `docs/llamaindex-performance.md`. No real database/Ollama request was run; the observed 43-second latency has not yet been attributed.
+- Validation: all six new diagnostics tests passed; full suite 51 passed with the same pre-existing auth failure. Compileall and diff whitespace checks passed.
+- Preserved user edits present at task start: LlamaIndex `context_window=8192` and LangChain `num_ctx=8192`. No models, prompts, retrieval settings, SQL, schemas, API responses or dependencies changed by this task.
+- Next: restart FastAPI, issue one LlamaIndex `/rag/query`, and inspect `rag_timing` lines sharing its request ID. No commit or push requested; branch `main`, HEAD `ee0aa6e`.
 
 ## Commit Handoff
 - Scope: direct PostgreSQL configuration/access, vector-store preservation, dependency cleanup, ingestion HTTP errors, regression tests, and documentation.

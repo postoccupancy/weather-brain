@@ -24,8 +24,10 @@ from app.retrieval.structured.sql_queries import (
     insert_postgres,
 )
 from app.database import DATABASE_URL
+from app.frameworks.llamaindex.diagnostics import RagTimingMiddleware
 
 app = FastAPI()
+app.add_middleware(RagTimingMiddleware)
 
 
 class IngestPayload(BaseModel):
