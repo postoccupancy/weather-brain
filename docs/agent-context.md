@@ -1,7 +1,7 @@
 # Agent Context
 
 ## Last Updated
-- 2026-09-27
+- 2026-09-28
 
 ## Workspace Scope
 - Multi-root workspace covering `esp32_api`, `esp32_ui`, and `b2b-dashboard-demo`.
@@ -9,7 +9,14 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Commit the completed MVP answering, literature replacement, SQL safety and public provenance changes; keep the local `.env.example` edit unstaged.
+- Reconnect Electric Sea scalar aggregates to PostgreSQL without changing legacy `/ingest`, `/timeseries`, snapshots, or RAG. Commit the completed schema migration, authenticated batch endpoint, and focused tests; keep unrelated existing work unstaged.
+
+## Electric Sea aggregate ingestion
+- The repository has no ORM models or tracked migration framework. Legacy `/ingest` dynamically inserts wide rows into `readings`; `/timeseries` and snapshot/RAG code assume its existing `ts`, `device_id`, temperature, and humidity columns. Do not alter those paths for Electric Sea aggregates.
+- `migrations/20260928_electric_sea_signal_buckets.sql` is a forward-only migration. It adds `nodes`, `node_deployments`, and `signal_buckets`, preserving the existing `readings` and `snapshots` tables and all historical queries. `node_deployments` retains node-independent deployment name/location/coordinates/altitude/start/end/notes/metadata and permits only one open deployment per node.
+- `POST /ingest/signal-buckets` accepts up to 5,000 authenticated scalar aggregates for one node. Each record requires a timezone-aware bucket start, generic signal ID, mean/min/max/stddev, and sample count; unit and metadata are optional. Extra fields, including raw sample arrays, are rejected. The endpoint automatically creates a node identity if needed and associates all newly inserted buckets with its current open deployment. It never stores PCM.
+- `signal_buckets` has primary key `(node_id, signal_id, bucket_start)`. Inserts use `ON CONFLICT DO NOTHING`, so an exact batch retry creates no duplicate and reports it as a duplicate. The original deployment association remains intact if a node later moves.
+- Local `DATABASE_URL` is absent, so no live schema inspection or migration execution occurred. Focused tests passed: `22 passed` for `tests/test_signal_buckets.py tests/test_postgres.py`; compile checks passed with `PYTHONPYCACHEPREFIX=/tmp/weather-brain-pyc` because repository `__pycache__` paths are read-only in this environment. Full suite: 141 passed, with the one pre-existing direct-call `Query` default failure in `test_require_status_token_rejects_missing_header`. Next: apply the migration to the configured PostgreSQL instance before enabling Electric Sea posting.
 
 ## Public Literature Provenance
 - `/rag/query` now projects each `literature_sources` entry to citation, source, page, optional category/organization and score. Node IDs, nested/raw metadata, paths, sizes, timestamps and document/storage identifiers are excluded.

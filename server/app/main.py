@@ -17,6 +17,7 @@ load_dotenv(dotenv_path=DOTENV_PATH)
 
 from app.api.auth import require_ingest_token, require_status_token
 from app.api.rag_router import router as rag_router
+from app.api.signal_buckets_router import router as signal_buckets_router
 from app.api.timeseries_router import router as timeseries_router
 from app.api.weather_router import router as weather_router
 from app.retrieval.vector.index_scheduler import index_loop
@@ -46,6 +47,7 @@ app.add_middleware(
 
 # add endpoints from rag_router.py to the main app, prefixed with /rag, and tagged as 'rag' in the FastAPI /docs UI
 app.include_router(rag_router, prefix="/rag", tags=["rag"])
+app.include_router(signal_buckets_router, tags=["ingest"])
 app.include_router(timeseries_router, tags=["timeseries"])
 app.include_router(weather_router, tags=["weather"])
 

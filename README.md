@@ -84,6 +84,13 @@ I am currently testing three open source agent development frameworks:
 `POST /ingest`  
 Ingests sensor payloads from devices.
 
+`POST /ingest/signal-buckets`
+Ingests authenticated batches of scalar one-second aggregates from Electric Sea.
+Each record carries `bucket_start`, `signal_id`, optional `unit`, `mean`, `min`,
+`max`, `stddev`, and `sample_count`. Raw PCM is not accepted. The migration at
+`migrations/20260928_electric_sea_signal_buckets.sql` adds the generic bucket,
+node, and deployment tables; apply it before enabling this endpoint.
+
 ### Health and Status
 
 `GET /ping`  

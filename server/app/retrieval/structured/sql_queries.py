@@ -23,6 +23,13 @@ class InsertResult:
     data: list[dict[str, Any]]
 
 
+@dataclass
+class SignalBucketInsertResult:
+    accepted: int
+    inserted: int
+    deployment_id: str | None
+
+
 def insert_postgres(row: dict[str, Any]) -> InsertResult | None:
     if not DATABASE_URL or RAW_DATA_TABLE not in ALLOWED_TABLES:
         return None
@@ -47,6 +54,60 @@ def insert_postgres(row: dict[str, Any]) -> InsertResult | None:
                 return InsertResult(data=jsonable_encoder(cur.fetchall()))
     except Exception as exc:
         print("[postgres] insert error:", repr(exc))
+        return None
+
+
+def insert_signal_buckets(
+    *, node_id: str, buckets: list[dict[str, Any]]
+) -> SignalBucketInsertResult | None:
+    """Insert one node's scalar aggregate buckets without duplicating retries."""
+    if not DATABASE_URL:
+        return None
+    try:
+        with psycopg.connect(DATABASE_URL) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    "INSERT INTO nodes (id) VALUES (%s) ON CONFLICT (id) DO NOTHING",
+                    (node_id,),
+                )
+                cur.execute(
+                    "SELECT id FROM node_deployments "
+                    "WHERE node_id = %s AND ended_at IS NULL "
+                    "ORDER BY started_at DESC LIMIT 1",
+                    (node_id,),
+                )
+                deployment = cur.fetchone()
+                deployment_id = deployment["id"] if deployment else None
+                inserted = 0
+                for bucket in buckets:
+                    cur.execute(
+                        """
+                        INSERT INTO signal_buckets (
+                          node_id, deployment_id, signal_id, bucket_start, unit,
+                          mean, min, max, stddev, sample_count, metadata
+                        ) VALUES (
+                          %(node_id)s, %(deployment_id)s, %(signal_id)s,
+                          %(bucket_start)s, %(unit)s, %(mean)s, %(min)s, %(max)s,
+                          %(stddev)s, %(sample_count)s, %(metadata)s
+                        )
+                        ON CONFLICT (node_id, signal_id, bucket_start) DO NOTHING
+                        RETURNING node_id
+                        """,
+                        {
+                            "node_id": node_id,
+                            "deployment_id": deployment_id,
+                            **bucket,
+                            "metadata": Jsonb(bucket.get("metadata", {})),
+                        },
+                    )
+                    inserted += int(cur.fetchone() is not None)
+                return SignalBucketInsertResult(
+                    accepted=len(buckets),
+                    inserted=inserted,
+                    deployment_id=str(deployment_id) if deployment_id is not None else None,
+                )
+    except Exception as exc:
+        print("[postgres] signal bucket insert error:", repr(exc))
         return None
 
 
