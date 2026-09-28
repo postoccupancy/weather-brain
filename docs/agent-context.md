@@ -9,7 +9,63 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Commit the completed RAG diagnostics, no-lookup fix, and existing 8192 context settings at the user's request.
+- Commit the completed MVP answering, literature replacement, SQL safety and public provenance changes; keep the local `.env.example` edit unstaged.
+
+## Public Literature Provenance
+- `/rag/query` now projects each `literature_sources` entry to citation, source, page, optional category/organization and score. Node IDs, nested/raw metadata, paths, sizes, timestamps and document/storage identifiers are excluded.
+- The same allowlist plus passage text is sent to answer synthesis, preventing the model from echoing internal metadata. Underlying vector metadata and ingestion are unchanged.
+- The existing synthesis prompt now requires `[data]` for SQL facts, reserves numbered citations for the matching literature passages, requires separate provenance for combined claims, and forbids `[data]` in literature-only answers. Existing grounding/qualifier rules remain.
+- Focused MVP/diagnostics suite: 87 passed. Full suite: 138 passed, one unchanged pre-existing direct-call auth failure (`test_require_status_token_rejects_missing_header`). Compileall/diff checks passed.
+- Call-count tests still verify SQL 1/0, literature 1/1 and combined 2/1 LLM/embedding calls. No routing, SQL, retrieval, model, context, RAG, snapshot, latency, storage or architecture changes. No commit requested; existing pending edits preserved. Branch main, base 2b25c90.
+- User requested a commit after this work. Validation remains 87 focused tests passing and 138 full-suite tests passing with the one pre-existing auth direct-call failure. `.env.example` is deliberately excluded as a pre-existing local configuration edit.
+
+## MVP SQL Date Range and Failure Handling
+- `POSTGRES_TEXT_TO_SQL` now requires direct `ts` comparison with inclusive local-calendar start and exclusive end timestamps, forbids DATE casts/BETWEEN for calendar periods, and includes the requested Jan-Mar 2026 America/Los_Angeles example plus a generalization rule.
+- `answer_with_llamaindex` catches `psycopg.Error` only around validated SELECT execution. It logs request ID, generated SQL and the PostgreSQL exception server-side, then returns a generic rephrase answer with the original route/paths, generated SQL, timing/call counts, null SQL result and `sql_status: error`. No exception detail reaches the response.
+- Added prompt/canonical SQL tests and an API-level combined-route database-error regression. Focused MVP/diagnostics suite: 85 passed. Full suite: 136 passed, one unchanged pre-existing direct-call auth failure (`test_require_status_token_rejects_missing_header`). Compileall and diff whitespace checks passed.
+- No retries, extra calls/stages, model/context/RAG changes, retrieval/synthesis changes, snapshot changes, validation/transaction changes or commit. Existing pending edits preserved; branch main, base 2b25c90.
+
+## Literature Evidence Prompt
+- Updated only the shared MVP literature/combined synthesis prompt in `llamaindex/answering.py`: per-claim citations, explicit evidence categories, no inferred recommended ranges, missing-answer disclosure, and preservation of lower/upper qualifiers.
+- 56 MVP tests passed; diff whitespace check passed. Live authenticated humidity query returned 200 with one embedding and one LLM call and stopped inventing a recommended range. It still dropped the word lower in one claim; added an explicit qualifier-preservation instruction afterward. That final instruction has not been live-retested. Prompt guidance does not guarantee factual compliance.
+- No retrieval, model, context, data, architecture or other behavior changed. No commit requested; existing pending changes preserved. Branch main, base 2b25c90.
+
+## Literature Replacement Completed
+- `literature_ingestion.py` now strictly loads PDFs, prepares all chunks/embeddings before deletion, and deletes/inserts selected sources under one PostgreSQL transaction and writer lock. Splitter/model/dimension/retrieval settings unchanged.
+- Added focused tests and local-only `scripts/rebuild_literature.py --apply` maintenance/verification command. Backup and live report: `scratch/literature-rebuild-20260927T160441Z/`.
+- Before: 6247 rows, including 6245 PDF rows and two web rows. The requested humidity query reproduced two exact-score page-14 duplicate pairs in positions 1-4.
+- All seven PDF source names match the current authoritative corpus. Rebuild preserves the two web rows and does not touch snapshots, LangChain tables, raw readings or schemas.
+- First rebuild committed: 4432 freshly prepared PDF chunks + two unchanged web rows = 4434 total. Verified every prepared chunk occurrence, including 3347 overlapping adjacent pairs. Real injected post-delete/partial-insert failure rolled back to the full original row fingerprint.
+- Single-PDF re-ingestion of M&V Protocol retained 441 rows; total stayed 4434. Second full PDF ingestion also retained every source count and 4434 total rows. Zero repeated source/page/text/position groups; one parent document per PDF page. M&V page 14 now has eight distinct chunks/vectors.
+- Authenticated TestClient query (without startup/scheduler) returned HTTP 200, literature route, five distinct passages, one embedding and one LLM call, 23.779 seconds. Response saved beside the report. Synthesis misinterpreted upper humidity limits as a recommended range; documented but intentionally not changed in this ingestion task.
+- Results and per-source before/after counts: `docs/literature-rebuild-results.md`. Tests: 133 passed, one pre-existing auth failure; compileall/diff checks passed. No commit requested. Branch main, base 2b25c90. Existing unrelated pending changes preserved. Implementation and authorized cleanup complete; retain CSV backup.
+
+## Literature Duplicate Investigation
+- Local `public.data_rag_literature_chunks` has 6247 rows, all distinct node IDs. RAG_K is 5.
+- M&V Protocol 2001.pdf page 14 has 16 rows: IDs 1293-1300 and 3341-3348, eight matching chunk-position pairs with identical vectors and source metadata. Seven text pairs are exact; 1300/3348 differ by one extra space. Eight whitespace-normalized texts total, two parent document UUIDs.
+- Across the index, 1710 groups share exact source/page/text, with 1724 excess rows by that grouping; inspect provenance/positions before treating every group as removable.
+- Code loads PDF pages, normalizes into fresh Documents, uses SentenceSplitter(256, overlap=50) with random UUID node IDs, cleans text, embeds metadata-aware node content and appends via PGVectorStore.add. No idempotency, deletion or unique node/content constraint; only numeric row ID is unique.
+- Cause: repeated ingestion/reprocessing is strongly indicated, not intentional multi-representation indexing. Exact historical trigger cannot be proven from the table. Current query text/result IDs were not provided, so the specific top-five result was not replayed.
+- Recommended smallest durable fix: prepare a source's chunks/embeddings then transactionally replace that source's existing rows, plus a reviewed cleanup of existing equivalent chunks. Stable node IDs alone do not stop append-only inserts without uniqueness/upsert or an existence check.
+- Inspection used local-only connection validation, read-only transactions and timeouts; no API startup, ingestion, re-embedding or data/schema changes. Only this handoff note was updated.
+
+## SQL-biased Router Follow-up
+- Benchmark `tell me weather trends from January to March 2026` previously missed singular `trend` and the limited date rules, then fell through to the literature default.
+- Router now defaults to SQL, recognizes plural observed/statistical terms and month/year periods, and requires knowledge/guidance intent for literature. Observed-data comparisons with standards/research select both paths; publication years alone do not imply sensor observations.
+- Added benchmark, route-boundary, definition, research and combined-path regression cases. Only routing, tests and supporting documentation changed in this task; all existing pending MVP edits were preserved.
+- No prompts, model/context settings, retrieval, synthesis, SQL generation or snapshot behavior changed. No live calls or commits. Branch `main`, base `2b25c90`.
+- Validation: 82 routing/SQL/diagnostics tests passed; diff whitespace check passed. Next: restart FastAPI and retry the exact benchmark against local sensor data.
+
+## MVP Answering
+- New `planning/knowledge_paths.py` selects sql/literature/sql+literature with English heuristics, no model routing. Explicit LangChain selection retains snapshot experiments.
+- `llamaindex/answering.py` now runs one-call SQL or one-call literature, or two-call combined answering. Direct PGVectorStore top-k uses the existing literature table, RAG_K and 768-dimensional model. Context remains 8192.
+- Shared factories in `runtime.py`; old multi-stage engines moved to `experimental.py`. Placeholder document embedding/index creation removed entirely.
+- `retrieval/structured/generated_sql.py` validates a single SELECT and executes under SET TRANSACTION READ ONLY with a 30-second statement timeout. Unsupported generated SQL returns 422 before execution.
+- Response metadata includes paths, SQL/rows, literature sources, stage/LLM/token timings, call counts, and total time through response construction. Full response-send time remains in logs.
+- Endpoints/auth/indexers/snapshots/scheduler/schema/dependencies/deployment are unchanged. No live DB/Ollama work performed.
+- Documentation: `docs/mvp-answering.md`. Next: restart API and verify live route quality/latency. Heuristics and conservative SQL syntax intentionally have MVP limits.
+- Branch `main`, base `2b25c90`; no commit/push requested.
+- Final validation: 103 tests passed; the same pre-existing missing-status-token unit test fails on its FastAPI Query default. Compileall and diff whitespace checks passed. External I/O was mocked for query-path tests; live latency remains unmeasured.
 
 ## Diagnostics Commit Handoff
 - Scope includes timing/token logs, robust no-lookup parsing, regression tests, documentation, and both existing model context settings.

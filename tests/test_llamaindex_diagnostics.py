@@ -56,11 +56,11 @@ def offline_rag(monkeypatch):
     from sqlalchemy import create_engine, text
     from sqlalchemy.pool import StaticPool
     from app.api.rag_router import router
-    from app.frameworks.llamaindex import runtime
+    from app.frameworks.llamaindex import runtime, answering
 
     saved_llm, saved_embedding = Settings._llm, Settings._embed_model
     cached = [runtime.get_llamaindex_llm, runtime.get_llamaindex_embed_model,
-              runtime.get_llamaindex_query_engine, runtime.get_vector_index_from_postgres]
+              runtime.get_sql_database, runtime.get_literature_store, runtime.get_vector_index_from_postgres]
     for factory in cached:
         factory.cache_clear()
     database = create_engine("sqlite://", poolclass=StaticPool,
@@ -69,6 +69,10 @@ def offline_rag(monkeypatch):
         conn.execute(text("CREATE TABLE readings (temp_c FLOAT)"))
         conn.execute(text("INSERT INTO readings VALUES (23.5)"))
     monkeypatch.setattr(runtime, "create_engine", lambda *a, **k: database)
+    def execute(statement):
+        with database.connect() as connection:
+            return [dict(row) for row in connection.execute(text(statement)).mappings()]
+    monkeypatch.setattr(answering, "execute_select", execute)
     monkeypatch.setattr(runtime, "sqlalchemy_database_url", lambda: "postgresql+psycopg://test@localhost/test")
     monkeypatch.setattr(runtime, "RAW_DATA_TABLE", "readings")
     monkeypatch.setattr(runtime, "RAG_LITERATURE_TABLE", "rag_literature_chunks")
@@ -79,9 +83,20 @@ def offline_rag(monkeypatch):
     embeddings = MagicMock(side_effect=lambda **kw: SimpleNamespace(
         embeddings=[[0.1] * 768 for _ in (kw["input"] if isinstance(kw["input"], list) else [kw["input"]])]))
     monkeypatch.setattr(Client, "embed", embeddings)
-    node = TextNode(text="Reference material.")
-    monkeypatch.setattr(diag.PGVectorStore, "query", lambda *a, **k: VectorStoreQueryResult(
-        nodes=[node], similarities=[1.0], ids=[node.node_id]))
+    node = TextNode(text="Reference material.", metadata={
+        "source": "reference.pdf", "page": 3, "category": "standard",
+        "organization": "Test Standards", "file_path": "C:\\private\\reference.pdf",
+        "file_size": 1234, "creation_date": "private-created",
+        "last_modified_date": "private-modified", "document_id": "private-id",
+    })
+    def vector_query(store, query, **kwargs):
+        from app.providers.ollama.config import RAG_K
+        assert query.query_embedding == [0.1] * 768
+        assert query.similarity_top_k == RAG_K
+        assert query.filters is None
+        assert store.table_name == "rag_literature_chunks"
+        return VectorStoreQueryResult(nodes=[node], similarities=[1.0], ids=[node.node_id])
+    monkeypatch.setattr(diag.PGVectorStore, "query", vector_query)
     chat = MagicMock()
     monkeypatch.setattr(Client, "chat", chat)
     app = FastAPI()
@@ -96,58 +111,71 @@ def offline_rag(monkeypatch):
         database.dispose()
 
 
-def scripted_responses(transform='LOOKUP: "comfortable temperature thresholds"'):
-    selection = {"message": {"role": "assistant", "content": "", "tool_calls": [
-        {"function": {"name": "SingleSelection", "arguments": {
-            "index": 1, "reason": "Needs sensor statistics"}}}]}}
-    responses = [selection]
-    for content in ["SELECT AVG(temp_c) FROM readings", transform,
-                    '{"query": "temperature reference", "filters": [], "top_k": 1}',
-                    "Literature summary.", "Final answer."]:
-        responses.append({"message": {"role": "assistant", "content": content}})
-    for response in responses:
-        response.update(prompt_eval_count=120, eval_count=24,
-                        prompt_eval_duration=125_000_000, eval_duration=900_000_000)
-    return responses
+def scripted_responses(contents):
+    return [{"message": {"role": "assistant", "content": content},
+             "prompt_eval_count": 120, "eval_count": 24,
+             "prompt_eval_duration": 125_000_000, "eval_duration": 900_000_000}
+            for content in contents]
 
 
-def test_real_pipeline_counts_six_calls_and_cold_embedding(offline_rag, caplog):
+@pytest.mark.parametrize("question,route,contents,embeddings_expected", [
+    ("What was the average temperature yesterday?", "sql", ["SELECT AVG(temp_c) FROM readings"], 0),
+    ("What temperature is comfortable?", "literature", ["Literature answer."], 1),
+    ("Was my temperature safe yesterday?", "sql+literature", ["SELECT AVG(temp_c) FROM readings", "Combined answer."], 1),
+])
+def test_explicit_pipeline_calls_and_metadata(offline_rag, caplog, question, route, contents, embeddings_expected):
     caplog.set_level(logging.INFO, logger=diag.logger.name)
     client, chat, embeddings = offline_rag
-    for cold in (True, False):
+    for _ in range(2):
         caplog.clear()
         chat.reset_mock()
         embeddings.reset_mock()
-        chat.side_effect = scripted_responses()
+        chat.side_effect = scripted_responses(contents)
         response = client.post("/rag/query?framework=llamaindex",
-                               json={"question": "What is the average temperature?"},
+                               json={"question": question},
                                headers={"X-RAG-Token": "test-token"})
         assert response.status_code == 200, response.text
-        assert response.json()["answer"] == "Final answer."
-        assert set(response.json()) == {"framework", "question", "response", "answer", "metadata"}
-        assert chat.call_count == 6
+        body = response.json()
+        assert set(body) == {"framework", "question", "response", "answer", "metadata"}
+        md = body["metadata"]
+        assert md["route"] == route
+        assert md["selected_knowledge_paths"] == route.split("+")
+        assert md["llm_call_count"] == chat.call_count == len(contents)
+        assert md["embedding_call_count"] == embeddings.call_count == embeddings_expected
         assert all(call.kwargs["options"]["num_ctx"] == 8192 for call in chat.call_args_list)
-        assert embeddings.call_count == (2 if cold else 1)
+        assert all(call.kwargs["tools"] is None for call in chat.call_args_list)
+        assert all(value >= 0 for value in md["timings_ms"].values())
+        assert md["timings_ms"]["total_request"] >= md["timings_ms"]["llm"]
+        if "sql" in route:
+            assert md["generated_sql"] == contents[0]
+            assert list(md["sql_result"][0].values()) == [23.5]
+        else:
+            assert md["generated_sql"] is None
+        if "literature" in route:
+            assert body["answer"] == contents[-1]
+            assert md["literature_sources"] == [{
+                "citation": 1, "source": "reference.pdf", "page": 3,
+                "category": "standard", "organization": "Test Standards", "score": 1.0,
+            }]
+            for internal in ("node_id", "file_path", "file_size", "creation_date",
+                             "last_modified_date", "document_id", "metadata", "text"):
+                assert internal not in md["literature_sources"][0]
+        else:
+            assert "23.5" in body["answer"]
+            assert md["literature_sources"] == []
         messages = [r.getMessage() for r in caplog.records if r.name == diag.logger.name]
-        assert sum("stage=llm_call " in m for m in messages) == 6
+        assert sum("stage=llm_call " in m for m in messages) == len(contents)
         for message in messages:
             if "stage=llm_call " in message:
                 assert "prompt_tokens=120 output_tokens=24 prompt_eval_ms=125.0 generation_ms=900.0" in message
-        assert "llm_calls=6" in messages[-1]
-        assert f"embedding_calls={2 if cold else 1}" in messages[-1]
         assert "stage=request_total" in messages[-1]
-        for stage in ("route_selection", "sql_generation", "query_transformation",
-                      "retrieval_planning", "postgres_query_and_fetch",
-                      "vector_literature_retrieval", "vector_store_query_and_fetch", "literature_answer_synthesis",
-                      "final_answer_synthesis", "engine_initialization"):
-            assert any(f"stage={stage} " in m for m in messages), stage
-        assert not any("Final answer." in m or "SELECT" in m for m in messages)
+        assert not any("stage=route_selection " in m or "stage=retrieval_planning " in m for m in messages)
 
 
 @pytest.mark.parametrize("value", ["None", " none \n", "LOOKUP: None", " lookup : nOnE \n"])
 def test_no_lookup_sentinel(value):
     from llama_index.core.schema import QueryBundle
-    from app.frameworks.llamaindex.runtime import no_literature_lookup
+    from app.frameworks.llamaindex.experimental import no_literature_lookup
 
     assert no_literature_lookup(QueryBundle(value))
 
@@ -158,35 +186,11 @@ def test_no_lookup_sentinel(value):
 ])
 def test_real_or_unrecognized_lookup_is_not_skipped(value):
     from llama_index.core.schema import QueryBundle
-    from app.frameworks.llamaindex.runtime import no_literature_lookup
+    from app.frameworks.llamaindex.experimental import no_literature_lookup
 
     bundle = QueryBundle(value)
     assert not no_literature_lookup(bundle)
     assert bundle.query_str == value
-
-
-def test_no_lookup_skips_literature_branch(offline_rag, caplog, monkeypatch):
-    caplog.set_level(logging.INFO, logger=diag.logger.name)
-    client, chat, embeddings = offline_rag
-    vector_query = MagicMock(side_effect=AssertionError("Literature branch must be skipped"))
-    monkeypatch.setattr(diag.PGVectorStore, "query", vector_query)
-    for cold in (True, False):
-        caplog.clear()
-        chat.reset_mock()
-        embeddings.reset_mock()
-        chat.side_effect = scripted_responses("LOOKUP: None")[:3]
-        response = client.post("/rag/query?framework=llamaindex",
-                               json={"question": "What is the average temperature?"},
-                               headers={"X-RAG-Token": "test-token"})
-        assert response.status_code == 200
-        assert "23.5" in response.json()["answer"]
-        assert chat.call_count == 3
-        assert embeddings.call_count == int(cold)
-        vector_query.assert_not_called()
-        assert "llm_calls=3" in caplog.text
-        for stage in ("retrieval_planning", "vector_literature_retrieval",
-                      "literature_answer_synthesis", "final_answer_synthesis"):
-            assert f"stage={stage} " not in caplog.text
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -210,6 +214,97 @@ def test_request_failure_logs_total_and_cleans_context(offline_rag, caplog):
     assert "outcome=error" in caplog.text
     assert "llm_calls=1" in caplog.text
     assert diag.current_request.get() is None
+
+
+def test_invalid_generated_sql_never_executes(offline_rag, monkeypatch):
+    from app.frameworks.llamaindex import answering
+    client, chat, embeddings = offline_rag
+    execute = MagicMock(side_effect=AssertionError("Unsafe SQL must not execute"))
+    monkeypatch.setattr(answering, "execute_select", execute)
+    chat.side_effect = scripted_responses(["DELETE FROM readings"])
+    response = client.post("/rag/query", json={"question": "Show latest readings"},
+                           headers={"X-RAG-Token": "test-token"})
+    assert response.status_code == 422
+    execute.assert_not_called()
+    embeddings.assert_not_called()
+    assert chat.call_count == 1
+
+
+def test_postgres_execution_failure_returns_controlled_answer(offline_rag, monkeypatch, caplog):
+    import psycopg
+    from app.frameworks.llamaindex import answering
+
+    client, chat, embeddings = offline_rag
+    generated = (
+        "SELECT AVG(temp_c) FROM readings WHERE "
+        "ts AT TIME ZONE 'America/Los_Angeles'::DATE >= '2026-01-01'::date"
+    )
+    database_detail = 'invalid input syntax for type date: "private-database-detail"'
+    monkeypatch.setattr(
+        answering, "execute_select",
+        MagicMock(side_effect=psycopg.errors.InvalidDatetimeFormat(database_detail)),
+    )
+    chat.side_effect = scripted_responses([generated])
+    caplog.set_level(logging.ERROR, logger=answering.logger.name)
+
+    response = client.post(
+        "/rag/query?framework=llamaindex",
+        json={"question": "How did humidity from January through March 2026 compare with literature recommendations?"},
+        headers={"X-RAG-Token": "test-token"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "could not be translated into a valid database query" in body["answer"]
+    assert database_detail not in response.text
+    assert body["metadata"]["route"] == "sql+literature"
+    assert body["metadata"]["selected_knowledge_paths"] == ["sql", "literature"]
+    assert body["metadata"]["sql_status"] == "error"
+    assert body["metadata"]["generated_sql"] == generated
+    assert body["metadata"]["sql_result"] is None
+    assert body["metadata"]["llm_call_count"] == 1
+    assert body["metadata"]["embedding_call_count"] == 0
+    assert generated in caplog.text
+    assert database_detail in caplog.text
+    assert chat.call_count == 1
+    embeddings.assert_not_called()
+
+
+def test_empty_literature_still_uses_one_grounded_synthesis(offline_rag, monkeypatch):
+    from llama_index.core.vector_stores.types import VectorStoreQueryResult
+    client, chat, embeddings = offline_rag
+    monkeypatch.setattr(diag.PGVectorStore, "query", lambda *a, **k: VectorStoreQueryResult(nodes=[]))
+    chat.side_effect = scripted_responses(["No relevant literature was found."])
+    response = client.get("/rag/query", params={"question": "What humidity is recommended?"},
+                          headers={"X-RAG-Token": "test-token"})
+    assert response.status_code == 200
+    assert response.json()["metadata"]["literature_sources"] == []
+    assert chat.call_count == embeddings.call_count == 1
+
+
+def test_public_literature_source_omits_unavailable_optional_metadata():
+    from app.frameworks.llamaindex.answering import (
+        _public_literature_source, _synthesis_literature_passage,
+    )
+
+    passage = {
+        "citation": 2, "node_id": "internal-node", "score": 0.75,
+        "text": "Public evidence.",
+        "metadata": {"source": "paper.pdf", "page_label": "24", "file_path": "private"},
+    }
+    expected = {"citation": 2, "source": "paper.pdf", "page": "24", "score": 0.75}
+    assert _public_literature_source(passage) == expected
+    assert _synthesis_literature_passage(passage) == {
+        **expected, "text": "Public evidence.",
+    }
+
+
+def test_query_authentication_is_unchanged(offline_rag):
+    client, chat, embeddings = offline_rag
+    response = client.post("/rag/query", json={"question": "Latest readings"})
+    assert response.status_code == 401
+    chat.assert_not_called()
+    embeddings.assert_not_called()
 
 
 def test_concurrent_requests_keep_separate_counts_and_ids(caplog):

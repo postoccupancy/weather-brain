@@ -28,6 +28,8 @@ class RequestTiming:
     enabled: bool = False
     llm_calls: int = 0
     embedding_calls: int = 0
+    started: float = field(default_factory=perf_counter)
+    records: list[dict] = field(default_factory=list)
 
 
 current_request: ContextVar[RequestTiming | None] = ContextVar("rag_timing", default=None)
@@ -35,9 +37,11 @@ current_stage: ContextVar[str] = ContextVar("rag_stage", default="unclassified")
 
 
 def log_duration(state, stage, started, outcome="ok", **fields):
+    duration_ms = (perf_counter() - started) * 1000
+    state.records.append({"stage": stage, "duration_ms": duration_ms, "outcome": outcome, **fields})
     logger.info(
         "rag_timing request_id=%s stage=%s duration_ms=%.3f outcome=%s%s",
-        state.request_id, stage, (perf_counter() - started) * 1000, outcome,
+        state.request_id, stage, duration_ms, outcome,
         "".join(f" {key}={value}" for key, value in fields.items()),
     )
 

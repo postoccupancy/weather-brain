@@ -1,5 +1,13 @@
 # Architecture
 
+## Current MVP answering
+
+Normal LlamaIndex `/rag/query` requests use deterministic SQL/literature routing
+and explicit orchestration, with one model call for SQL or literature and two for
+combined queries. Snapshot answering remains an explicit LangChain experiment.
+See [MVP answering](mvp-answering.md) for current execution and metadata details;
+the broader layer descriptions below also cover retained experiments.
+
 ## Overview
 
 `esp32_api` is the backend half of a two-repo system:

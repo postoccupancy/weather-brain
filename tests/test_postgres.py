@@ -168,10 +168,12 @@ def test_llamaindex_preserves_table_mapping_without_setup(monkeypatch):
     monkeypatch.setattr(runtime.StorageContext, "from_defaults", MagicMock())
     monkeypatch.setattr(runtime.VectorStoreIndex, "from_vector_store", MagicMock())
     runtime.get_vector_index_from_postgres.cache_clear()
+    runtime.get_literature_store.cache_clear()
     runtime.get_vector_index_from_postgres()
     assert factory.call_args.kwargs["table_name"] == "rag_literature_chunks"
     assert factory.call_args.kwargs["perform_setup"] is False
     runtime.get_vector_index_from_postgres.cache_clear()
+    runtime.get_literature_store.cache_clear()
 
 
 def test_langchain_initialization_does_not_create_schema_or_collections(monkeypatch):

@@ -1,5 +1,11 @@
 # LlamaIndex query timing
 
+The normal runtime now uses [explicit MVP answering](mvp-answering.md): one Qwen
+call for SQL or literature, two for combined queries, and no cold placeholder
+embedding. The logging mechanism described here remains; auto-retrieval,
+transformation, and six-call execution details below document the retained
+`experimental.py` orchestration rather than the current endpoint path.
+
 Restart FastAPI and use GET or POST `/rag/query` with `framework=llamaindex`
 (or the configured LlamaIndex default). No new environment variables or packages
 are required. INFO records from `uvicorn.error.rag_timing` appear with the normal

@@ -22,6 +22,10 @@ The frontend (separate repo - `esp32_ui`) uses the Next.js server-side TypeScrip
 Vector embedding, RAG retrieval, and LLM chat run on a local machine with Ollama. I am testing a variety of free open-weight LLMs running on Ollama, including gemma2 (Google), llama3 (Meta), gpt-oss (OpenAI), and qwen2.5 (Alibaba). For text embedding, I am testing the bge-m3 and nomic-embed-text models. 
 
 ### Agent Development Frameworks
+
+The normal `/rag/query` path now uses a small explicit SQL/literature orchestrator,
+with deterministic routing and structured timing/source metadata. Snapshot RAG
+remains experimental. See [MVP answering](docs/mvp-answering.md).
 The LLM chat uses a multi-agent framework with Planning, Retrieval, and Execution personas.
 
 1. **Planning**
