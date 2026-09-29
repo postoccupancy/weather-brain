@@ -1,7 +1,7 @@
 # Agent Context
 
 ## Last Updated
-- 2026-09-28
+- 2026-09-29
 
 ## Workspace Scope
 - Multi-root workspace covering `esp32_api`, `esp32_ui`, and `b2b-dashboard-demo`.
@@ -9,7 +9,28 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Reconnect Electric Sea scalar aggregates to PostgreSQL without changing legacy `/ingest`, `/timeseries`, snapshots, or RAG. Commit the completed schema migration, authenticated batch endpoint, and focused tests; keep unrelated existing work unstaged.
+- Finish node deployment management in Weather Brain and Electric Sea dashboards, with explicit dry-run backfill tooling. Completed; user requested commits in both repositories.
+
+## Deployment management
+- Added authenticated current/start/change/end routes at `/nodes/{node_id}/deployment`, using status auth for reads and ingest auth for writes. Node-row locks serialize writes; change/end require the observed active ID to reject stale edits. Existing schema/history and ingestion selection are preserved.
+- Electric Sea injects a shared control into both proxied dashboards (including cached indoor HTML). A same-origin proxy validates the existing status token entered by the operator, then supplies the server-held ingest token for management writes; no Pi deployment state or public embedded credentials. Configure `WEATHER_BRAIN_STATUS_TOKEN` alongside the existing archive URL/token.
+- Added `scripts/backfill_deployment.py`, requiring node, destination deployment, inclusive start and exclusive end. Dry-run by default; `--apply` only fills NULL associations for the validated node/range. No existing archive records have been backfilled.
+- Documentation: `docs/deployments.md`. Final validation: 50 focused backend deployment/ingestion/PostgreSQL/timeseries tests passed, including disposable PostgreSQL schemas; all 90 Electric Sea router tests passed, including four new proxy/control tests. JavaScript syntax, backfill CLI help, and diff whitespace checks passed.
+- Existing uncommitted `/timeseries` work, README edits and handoff notes are preserved. No firmware, archival aggregation/transport, schema, RAG, snapshots, recorder, PCM/OSC/MIDI changes or live deployment creation.
+- Next: set `WEATHER_BRAIN_STATUS_TOKEN` on Electric Sea and restart both services, then explicitly create the real deployment in the dashboard. No backfill was performed. Creating deployment-management commits on `main` from Weather Brain `027f5fb` and Electric Sea `c90a933`; use `git log -1` for resulting IDs. Earlier Weather Brain timeseries/README implementation changes remain uncommitted. No blockers or push requested.
+
+## Electric Sea time-series retrieval
+- `/timeseries` accepts `table=signal_buckets`, reuses `device_id` for the node, and adds `signal_id`. Both selectors are required for this source. Existing table defaults, legacy SQL, and summary endpoint are unchanged.
+- New supporting `signal_timeseries.py` queries stored summaries or epoch-aligned intervals in PostgreSQL. Means are sample-count weighted; population variance uses the centered within/between-bucket formula. No fixed sample rate or gap filling. Full/lite response envelopes and signal-named metric aliases follow existing conventions.
+- Producer population-stddev convention, parameter/response details, inclusive time boundaries, and null behavior are documented in `docs/signal-timeseries.md`.
+- Validation: 43 focused tests passed, including PostgreSQL integration tests with unequal source counts, differing means/stddevs, multiple resolutions, selector isolation, numerical stability, and legacy responses. Integration tests use `TEST_DATABASE_URL`, transaction-local temporary tables, and rollback; no persistent table/data changes. Diff whitespace check passed.
+- Preserved pre-existing README and migration handoff edits. No ingestion, Electric Sea, snapshot, RAG, frontend, or schema edits. Branch `main`, HEAD `027f5fb`. Next: restart API to expose the new query option; no blockers.
+
+## Electric Sea live migration applied
+- On 2026-09-28, inspected commit `52d23c6` and applied `migrations/20260928_electric_sea_signal_buckets.sql` using the root `.env` DATABASE_URL. All three target tables were absent before execution; the migration committed successfully in the `public` schema.
+- Verified `nodes`, `node_deployments`, and `signal_buckets`, all six indexes, primary/foreign keys, and check constraints. Live bucket insertion with a deployment and duplicate retry passed in a rolled-back transaction; no test rows remain.
+- Focused tests: 22 passed (`tests/test_signal_buckets.py tests/test_postgres.py`). Existing tables/data were not modified by this migration. No API startup, indexing, deployment, commit, or push performed.
+- Next: ensure the running API uses commit `52d23c6` or later before enabling Electric Sea posting. No migration blockers. Branch `main`, HEAD `027f5fb`.
 
 ## Electric Sea aggregate ingestion
 - The repository has no ORM models or tracked migration framework. Legacy `/ingest` dynamically inserts wide rows into `readings`; `/timeseries` and snapshot/RAG code assume its existing `ts`, `device_id`, temperature, and humidity columns. Do not alter those paths for Electric Sea aggregates.
