@@ -235,8 +235,14 @@ cd weather-brain
 python -m pytest /workspaces/weather-brain/tests
 ```
 
-```PowerShell
+```bash
 .\.venv\Scripts\Activate.ps1
 ```
 
 Current result on this branch: `21 passed`
+
+One-line server startup from PowerShell:
+
+```bash
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```

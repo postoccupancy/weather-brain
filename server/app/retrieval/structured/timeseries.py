@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from fastapi import HTTPException
+from app.retrieval.structured.signal_timeseries import get_signal_timeseries
 
 from app.retrieval.structured.sql_queries import (
     get_postgres,
@@ -26,7 +27,21 @@ def fetch_timeseries(
     order_desc: bool = True,
     bucket: int | None = None,
     aggregate_mode: str = "full",
+    signal_id: str | None = None,
 ) -> dict[str, object]:
+    if table == "signal_buckets":
+        if not device_id or not signal_id:
+            raise HTTPException(status_code=400, detail="signal_buckets requires device_id (node ID) and signal_id")
+        rows = get_signal_timeseries(
+            node_id=device_id, signal_id=signal_id, start_ts=start_ts,
+            end_ts=end_ts, bucket_seconds=bucket, limit=limit, offset=offset,
+            order_desc=order_desc, aggregate_mode=aggregate_mode,
+        )
+        if bucket is None:
+            return {"ok": True, table: rows}
+        return {"ok": True, "bucket": bucket, "aggregate_mode": aggregate_mode, "aggregates": rows}
+    if signal_id is not None:
+        raise HTTPException(status_code=400, detail="signal_id requires table='signal_buckets'")
     if table not in ALLOWED_TABLES:
         raise HTTPException(status_code=400, detail="Invalid table")
 

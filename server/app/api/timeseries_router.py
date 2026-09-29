@@ -27,6 +27,7 @@ def get_readings(
     order_desc: bool = Query(default=True),
     bucket: int | None = Query(default=None, ge=1),
     aggregate_mode: str = Query(default="full"),
+    signal_id: str | None = Query(default=None, min_length=1, max_length=255),
 ):
     return fetch_timeseries(
         limit=limit,
@@ -38,6 +39,7 @@ def get_readings(
         order_desc=order_desc,
         bucket=bucket,
         aggregate_mode=aggregate_mode,
+        signal_id=signal_id,
     )
 
 

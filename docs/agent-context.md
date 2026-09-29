@@ -9,7 +9,12 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Finish node deployment management in Weather Brain and Electric Sea dashboards, with explicit dry-run backfill tooling. Completed; user requested commits in both repositories.
+- Commit all remaining Weather Brain changes, including signal-bucket timeseries support, tests, documentation, and the existing README edits.
+
+## Remaining changes commit
+- User requested all remaining Weather Brain changes be committed on `main`, from `1888c78`. Deployment-management commits are Weather Brain `1888c78` and Electric Sea `ea2e9d0`.
+- Includes the previously completed signal-bucket timeseries implementation and README startup notes. Validation remains 50 focused backend tests passing (including PostgreSQL integration); no implementation changes since that run. Diff whitespace check passed.
+- No secrets, live database changes or push requested. Next: restart services to load the implemented API features. Use `git log -1` for the resulting commit ID.
 
 ## Deployment management
 - Added authenticated current/start/change/end routes at `/nodes/{node_id}/deployment`, using status auth for reads and ingest auth for writes. Node-row locks serialize writes; change/end require the observed active ID to reject stale edits. Existing schema/history and ingestion selection are preserved.
