@@ -4,6 +4,7 @@
 - 2026-09-30
 
 ## Hourly Snapshot Event Review
+- Pressure assessment: verified indoor-sky firmware emits local BME pressure in hPa alongside temperature/RH and Electric Sea preserves aligned pressure samples. Pressure is useful for humidity ratio, wet-bulb, density, and enthalpy derivations; recommend hourly context/trend before standalone events. Current readings snapshot detector still uses only temperature/RH. Persisted pressure completeness/calibration not verified; psychrometric use needs local absolute pressure converted to Pa, not sea-level-reduced pressure. No code changes for this assessment.
 - Resolved the rebase onto 7f9eea7 by retaining the newer update date and snapshot notes alongside upstream context; application code had no conflicts.
 - User requested committing the completed snapshot changes, tests, and documentation. Commit prepared from parent 027f5fb; no push requested. Validation remains 17 focused tests passing and the documented pre-existing full-suite auth failure. Live example remains blocked by the unavailable database.
 - Latest-hour example attempt: configured PostgreSQL endpoint localhost:5432 refused connections even after an approved sandbox escalation for a read-only query. No current Electric Sky data could be fetched, and no example was fabricated. Requires the database service/tunnel to be reachable or a corrected DATABASE_URL; no database writes or service startup performed.
