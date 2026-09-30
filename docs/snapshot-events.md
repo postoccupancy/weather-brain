@@ -3,8 +3,9 @@
 The existing readings-based snapshot builder now appends deterministic event
 descriptions to every nonempty hourly document. Existing aggregate statistics,
 archive upserts, and vector indexing remain in use. No esp32_ui code is changed.
-Electric Sea signal_buckets integration and psychrometric/comfort models are
-separate follow-ups; this change does not infer signal IDs, units, or cadence.
+The Electric Sea input path is documented in [electric-sea-snapshots.md](electric-sea-snapshots.md).
+It supplies weighted five-minute means and stored-second coverage with explicit
+signal/unit mappings. Psychrometric/comfort models remain separate follow-ups.
 
 ## Detection
 

@@ -28,8 +28,23 @@ def index_snapshots(
     framework: str | None = None,
     archive: str = SNAPSHOT_DATA_TABLE,
     lookback_hours: int | None = None,
+    source: str = "readings",
 ) -> dict[str, object]:
     selected = choose_framework(framework, default=DEFAULT_RAG_INDEX_FRAMEWORK)
+
+    if source == "signal_buckets":
+        if selected != "langchain":
+            raise HTTPException(status_code=400, detail="Electric Sea snapshots use the existing LangChain collection")
+        if lookback_hours is None:
+            raise HTTPException(status_code=400, detail="Use the bounded Electric Sea snapshot CLI for historical rebuilds")
+        from app.retrieval.vector.snapshots import build_snapshot_records
+        from app.retrieval.vector.electric_sea_snapshots import store_electric_sea_snapshots
+        from app.providers.ollama.config import RAG_SNAPSHOT_TABLE
+        records = build_snapshot_records(source=source, lookback_hours=lookback_hours, db_url=db_url)
+        count = store_electric_sea_snapshots(records, db_url=db_url, archive=archive, collection=RAG_SNAPSHOT_TABLE)
+        return {"ok": True, "source": source, "framework": selected, "snapshots_indexed": count}
+    if source != "readings":
+        raise HTTPException(status_code=400, detail="Unsupported snapshot source")
 
     if selected == "langchain":
         result = index_snapshots_with_langchain(

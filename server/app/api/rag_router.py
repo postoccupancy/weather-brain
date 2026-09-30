@@ -44,21 +44,23 @@ def query(
     return answer_question(request.question, framework=framework)
 
 @router.post("/rebuild", dependencies=[Depends(require_rag_token)])
-def rebuild_snapshot_index(framework: str | None = Query(default=None)):
+def rebuild_snapshot_index(framework: str | None = Query(default=None), source: str = Query(default="readings")):
     return index_snapshots(
         db_url=DATABASE_URL,
         framework=framework,
         archive=SNAPSHOT_DATA_TABLE,
         lookback_hours=None,
+        source=source,
     )
 
 @router.post("/index", dependencies=[Depends(require_rag_token)])
-def index_recent_snapshots(framework: str | None = Query(default=None)):
+def index_recent_snapshots(framework: str | None = Query(default=None), source: str = Query(default="readings")):
     return index_snapshots(
         db_url=DATABASE_URL,
         framework=framework,
         archive=SNAPSHOT_DATA_TABLE,
         lookback_hours=1,
+        source=source,
     )
 
 @router.post("/ingest_docs", dependencies=[Depends(require_rag_token)])

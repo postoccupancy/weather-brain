@@ -22,7 +22,29 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Merge the local snapshot review notes with upstream hourly snapshot event-detection work. Local notes committed as `cc446f0`; upstream `c0e8ef4` merged without conflicts on `main`.
+- Adapt hourly snapshots to Electric Sea and verify a bounded real archive/vector write. Implemented and live-validated; no bulk historical rebuild or service restart performed.
+
+## Electric Sea snapshot commit handoff
+- User requested committing the implementation, naming updates, tests, and documentation on main from deb804e. Validation remains as recorded below; whitespace check passed. Ignored .env and scratch artifacts are excluded.
+- Next: restart API to load the hourly scheduler and inspect subsequent snapshots. No push or service restart performed in this commit task; no new blockers.
+
+## Electric Sea snapshot naming
+- Renamed the module, CLI, tests, documentation, validation artifact, and source-specific functions to use Electric Sea snapshot naming. Runtime behavior and persisted IDs remain unchanged.
+- Validation: 18 focused tests passed; five PostgreSQL integration tests skipped without TEST_DATABASE_URL. Renamed CLI help/import and diff whitespace checks passed; no old naming references remain in source, tests, scripts, or docs. No database write, service restart, commit, or push.
+
+## Electric Sea snapshot implementation
+- Existing `build_snapshot_records` accepts `source=signal_buckets`; focused `electric_sea_snapshots.py` supplies node discovery, weighted hourly/five-minute statistics, pooled population stddev, and separate deployment/unit sections. One node/hour document fits the existing archive key; no migration. Vector metadata retains structured deployment and signal stats.
+- Temperature/celsius and humidity/percent feed the existing event helper with stored-second coverage and same-deployment history. Unknown deployment does not provide historical baselines. Other signals are summarized without event claims. Legacy readings builder and HTTP defaults remain unchanged.
+- Electric Sea archive/vector upserts use source-prefixed stable IDs and one transaction, with embeddings prepared first, dimension checks, and a writer lock. Scheduler defaults to signal_buckets, revisits three completed hours with 30-second grace, and survives failures. `SNAPSHOT_SOURCE=readings` restores legacy source scheduling. Explicit CLI preview/apply: `scripts/electric_sea_snapshots.py`; docs: `docs/electric-sea-snapshots.md`.
+- Live validation stored and repeated only electric-sky 2026-09-30 14:00-15:00 UTC (Home Office, eight signals). Verified one archive row and one matching 768-dimensional vector including exact text/metadata. Artifact: `scratch/electric-sea-snapshot-validation.json`. Totals now 499 archive rows / 704 collection documents. The pre-existing discrepancy is 205 legacy windows with two vectors each; none were removed.
+- Validation: 69 focused database-enabled tests passed, plus the final source-dispatch regression. Full suite: 163 passed, 22 database tests skipped, one previously documented auth direct-call failure. New SQL tests use temporary tables and verify uneven counts, gaps, nodes/deployments/units, history isolation, idempotence, late-data replacement and rollback. Diff whitespace check passed.
+- Next: restart API to load the scheduler and inspect subsequent hours; older late arrivals/backfills need explicit bounded rebuilds. No commit/push requested. Existing context notes preserved; no ingestion, frontend, Electric Sea transport, RAG answering, literature or legacy-data changes.
+
+## Electric Sky snapshot preview
+- On 2026-09-30, PostgreSQL was reachable. Latest completed Electric Sky hour at inspection was 13:00-14:00 UTC (06:00-07:00 PDT); latest received source timestamp was 14:51:20 UTC. All 26,956 records in that hour were associated with Home Office.
+- Generated ignored `scratch/electric-sky-snapshot-preview-20260930.txt` via read-only, repeatable-read queries: weighted means, pooled population stddev, extrema, source sample counts and stored-second coverage for all eight signals. Existing `describe_events` used weighted five-minute temperature/RH means, distinct stored-second counts and explicit one-second coverage expectation. This is an ad hoc preview adapter, not production builder output or an indexed snapshot.
+- Temperature/RH each cover 3370/3600 seconds (93.61%), with 335292 original observations per signal. Both have 12/12 covered five-minute buckets, zero baseline-assessable buckets, and no rapid changes crossing default thresholds. No historical-baseline event conclusion is available.
+- Review: production builder still targets legacy readings/device/temp_c/rh and hard-coded 1800/hour aggregate coverage. New helper only detects temperature/RH events, not other Electric Sea signals, and does not partition baselines by deployment. Electric Sea integration must address these before indexing. All 17 snapshot event tests pass. No runtime code, database contents or vectors changed.
 
 ## Upstream merge handoff
 - Preserved both the local database-review findings below and upstream snapshot event implementation, tests, and documentation. The review describes the pre-enrichment state; upstream now adds event descriptions to the legacy readings-based builder.

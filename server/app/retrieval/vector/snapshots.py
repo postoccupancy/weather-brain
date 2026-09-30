@@ -257,7 +257,16 @@ def build_snapshot_records(
     lookback_hours: Optional[int] = None,
     end_time: Optional[datetime] = None,
     start_time: Optional[datetime] = None,
+    source: str = "readings",
+    node_id: str | None = None,
+    db_url: str = DATABASE_URL,
 ) -> list[SnapshotRecord]:
+    if source == "signal_buckets":
+        from app.retrieval.vector.electric_sea_snapshots import build_electric_sea_snapshot_records
+        return build_electric_sea_snapshot_records(lookback_hours=lookback_hours, start_time=start_time,
+            end_time=end_time, node_id=node_id, db_url=db_url)
+    if source != "readings":
+        raise ValueError("Unsupported snapshot source")
     connection = psycopg.connect(DATABASE_URL)
     records: list[SnapshotRecord] = []
 
