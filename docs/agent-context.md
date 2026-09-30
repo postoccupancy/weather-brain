@@ -1,7 +1,20 @@
 # Agent Context
 
 ## Last Updated
-- 2026-09-29
+- 2026-09-30
+
+## Hourly Snapshot Event Review
+- Resolved the rebase onto 7f9eea7 by retaining the newer update date and snapshot notes alongside upstream context; application code had no conflicts.
+- User requested committing the completed snapshot changes, tests, and documentation. Commit prepared from parent 027f5fb; no push requested. Validation remains 17 focused tests passing and the documented pre-existing full-suite auth failure. Live example remains blocked by the unavailable database.
+- Latest-hour example attempt: configured PostgreSQL endpoint localhost:5432 refused connections even after an approved sandbox escalation for a read-only query. No current Electric Sky data could be fetched, and no example was fabricated. Requires the database service/tunnel to be reachable or a corrected DATABASE_URL; no database writes or service startup performed.
+- Implemented corrected detection in the existing readings-based snapshot builder (2026-09-30). `snapshot_events.py` is a small deterministic helper; snapshot text now includes five-minute sustained high/low and rapid-change observations, prior-history median/MAD baselines, physical-unit floors, persistence/hysteresis, per-metric coverage, and cross-hour evidence. Daily bounded history queries feed the helper. Missing aggregate metrics render as unavailable instead of crashing.
+- Configuration and limitations: `docs/snapshot-events.md`. Defaults are provisional 2 C / 5 RH percentage points, 80% bucket coverage, two-bucket persistence, 30-day same-local-hour history with at least 18 buckets over three dates. Rapid observations may overlap sustained episodes; metric observations remain separate. No comfort/causal claims or linear expected-RH heuristic.
+- Validation: 17 focused tests passed; full suite before seven additional focused cases: 151 passed, one documented pre-existing missing-token auth failure. Diff whitespace check passed. No live DB/reindex, migration, commit, or esp32_ui changes. Electric Sea source adaptation and psychrometrics remain future work; existing stored snapshots require rebuilding.
+- Inspected esp32_ui dashboard, alerts, and build-threshold-events.ts for the requested snapshot enrichment; implementation is pending the user's ongoing scope discussion.
+- Existing event logic groups consecutive breached buckets across temperature, temperature-adjusted RH, and absolute humidity; records peak deviations, timing, settings, and completeness. Alerts currently select hour-of-day means; the older baseline documentation describes window means.
+- Next: adapt this logic directly into the snapshot builder to retain aggregates and describe zero or more events per hour. No snapshot code or stored data changed during this review.
+- Electric Sea follow-up: signal_buckets stores one scalar signal per node/time with mean/min/max/stddev/count and optional unit/metadata/deployment. Its contract does not require bucket duration, expected sampling rate, timezone, or canonical signal IDs. Snapshot adaptation needs explicit signal/unit mapping, cadence metadata, weighted rollups, aligned temperature/RH pairs, deployment-aware baselines, and node/source identity in the existing archive/index path. Description only; no implementation changes.
+- Comfort/DSP assessment: researched CBE, pythermalcomfort, PsychroLib, SciPy, NIST CUSUM, and ruptures documentation. Recommend retaining event grouping/evidence but replacing percent-of-Fahrenheit thresholds and linear expected-RH heuristic with physical-unit/robust residual thresholds and psychrometrics. Distinguish anomaly, physical interpretation, and comfort applicability in snapshot text; add hysteresis/persistence and direction-aware grouping. Future comfort requires deployment context, outdoor daily history, and measured/explicitly assumed MRT/air speed/clothing/activity. Globe-to-MRT correction depends on air speed, diameter, and emissivity; account for installation heat and response lag. No analysis implementation changed.
 
 ## Workspace Scope
 - Multi-root workspace covering `esp32_api`, `esp32_ui`, and `b2b-dashboard-demo`.

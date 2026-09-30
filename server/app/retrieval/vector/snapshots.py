@@ -11,6 +11,7 @@ from psycopg import sql
 DEVICE_ID = os.getenv("DEVICE_ID", "")
 RAW_DATA_TABLE = os.getenv("RAW_DATA_TABLE", "")
 from app.database import DATABASE_URL
+from app.retrieval.vector.snapshot_events import Bucket, EventSettings, describe_events
 
 
 @dataclass(frozen=True)
@@ -26,15 +27,15 @@ class HourlySnapshot:
     window_start: datetime
     window_end: datetime
     n: int
-    t_min_c: float
-    t_max_c: float
-    t_avg_c: float
-    t_min_f: float
-    t_max_f: float
-    t_avg_f: float
-    h_min: float
-    h_max: float
-    h_avg: float
+    t_min_c: float | None
+    t_max_c: float | None
+    t_avg_c: float | None
+    t_min_f: float | None
+    t_max_f: float | None
+    t_avg_f: float | None
+    h_min: float | None
+    h_max: float | None
+    h_avg: float | None
 
 
 @dataclass(frozen=True)
@@ -212,28 +213,43 @@ def _fetch_hour_stats(
         window_start=window.window_start,
         window_end=window.window_end,
         n=int(count),
-        t_min_c=float(row[1]),
-        t_max_c=float(row[2]),
-        t_avg_c=float(row[3]),
-        t_min_f=float(row[4]),
-        t_max_f=float(row[5]),
-        t_avg_f=float(row[6]),
-        h_min=float(row[7]),
-        h_max=float(row[8]),
-        h_avg=float(row[9]),
+        **{key: float(value) if value is not None else None
+           for key, value in zip(
+               ("t_min_c", "t_max_c", "t_avg_c", "t_min_f", "t_max_f", "t_avg_f", "h_min", "h_max", "h_avg"),
+               row[1:10],
+           )},
     )
 
 
-def _format_snapshot_text(window: SnapshotWindow, stats: HourlySnapshot) -> str:
+def _fetch_event_buckets(connection, device_id, start, end) -> list[Bucket]:
+    query = sql.SQL("""
+        select date_bin(interval '5 minutes', ts, timestamptz '2000-01-01 00:00:00+00') as bucket,
+               avg(temp_c), avg(rh), count(temp_c), count(rh)
+        from {table}
+        where device_id = %(device_id)s and ts >= %(start)s and ts < %(end)s
+        group by bucket order by bucket
+    """).format(table=sql.Identifier(RAW_DATA_TABLE))
+    with connection.cursor() as cursor:
+        cursor.execute(query, {"device_id": device_id, "start": start, "end": end})
+        return [Bucket(t, float(tc) if tc is not None else None,
+                       float(rh) if rh is not None else None, nt, nh)
+                for t, tc, rh, nt, nh in cursor.fetchall()]
+
+
+def _format_snapshot_text(window: SnapshotWindow, stats: HourlySnapshot, event_text: str = "") -> str:
+    def fmt(value):
+        return f"{value:.2f}" if value is not None else "unavailable"
+
     return (
         f"Hourly snapshot for device '{window.device_id}'\n"
         f"Window (UTC): {window.window_start.isoformat()} → {window.window_end.isoformat()}\n"
         f"Samples: {stats.n}\n"
         f"Data coverage: {((stats.n * 100) / 1800):.2f}%\n"
-        f"Temperature °C: avg={stats.t_avg_c:.2f}, "
-        f"min={stats.t_min_c:.2f}, max={stats.t_max_c:.2f}\n"
-        f"Humidity %RH: avg={stats.h_avg:.2f}, "
-        f"min={stats.h_min:.2f}, max={stats.h_max:.2f}\n"
+        f"Temperature °C: avg={fmt(stats.t_avg_c)}, "
+        f"min={fmt(stats.t_min_c)}, max={fmt(stats.t_max_c)}\n"
+        f"Humidity %RH: avg={fmt(stats.h_avg)}, "
+        f"min={fmt(stats.h_min)}, max={fmt(stats.h_max)}\n"
+        f"{event_text}"
     )
 
 
@@ -259,12 +275,29 @@ def build_snapshot_records(
         )
 
     try:
+        settings = EventSettings(
+            timezone=os.getenv("SNAPSHOT_EVENT_TIMEZONE", "America/Los_Angeles"),
+            temperature_delta_c=float(os.getenv("SNAPSHOT_EVENT_TEMPERATURE_DELTA_C", "2")),
+            humidity_delta_pp=float(os.getenv("SNAPSHOT_EVENT_HUMIDITY_DELTA_PP", "5")),
+            sample_period_seconds=float(os.getenv("SNAPSHOT_EVENT_SAMPLE_PERIOD_SECONDS", "2")),
+        )
+        # Bound history queries/memory to one day of output plus its baseline context.
+        buckets: list[Bucket] = []
+        loaded_until = None
         for hour in hours:
+            if loaded_until is None or hour.window_start >= loaded_until:
+                loaded_until = min(hour.window_start + timedelta(days=1), hours[-1].window_end)
+                buckets = _fetch_event_buckets(
+                    connection, hour.device_id, hour.window_start - timedelta(days=30),
+                    loaded_until + timedelta(hours=1),
+                )
             stats = _fetch_hour_stats(connection, hour)
             if stats is None:
                 continue
 
-            snapshot_text = _format_snapshot_text(hour, stats)
+            snapshot_text = _format_snapshot_text(
+                hour, stats, describe_events(buckets, hour.window_start, hour.window_end, settings)
+            )
 
             records.append(
                 SnapshotRecord(
@@ -276,6 +309,7 @@ def build_snapshot_records(
                         "device_id": DEVICE_ID,
                         "source": RAW_DATA_TABLE,
                         "data_coverage": stats.n / 1800,
+                        "event_analysis_version": 1,
                     },
                 )
             )
