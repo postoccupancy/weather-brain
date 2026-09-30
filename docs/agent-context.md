@@ -24,6 +24,12 @@
 ## Current Objective
 - Adapt hourly snapshots to Electric Sea and verify a bounded real archive/vector write. Implemented and live-validated; no bulk historical rebuild or service restart performed.
 
+## Electric Sea snapshot backfill completed
+- User authorized all Electric Sea history and resumed after baseline clarification. Backfilled electric-sky (33 documents) and indoor-sky (5 documents) for completed hours in 2026-09-29 06:00 UTC through 2026-09-30 15:00 UTC (exclusive). Excluded the apparent test node named string and the unfinished hour.
+- Read-only verification matched all 38 source node-hours to exactly one archive row and stable-ID vector each, with exact preview text/metadata and 768-dimensional embeddings. Preview artifacts: scratch/electric-sea-backfill-electric-sky.json and scratch/electric-sea-backfill-indoor-sky.json. Existing matching snapshots were upserted; legacy readings and source buckets were not changed.
+- Baselines use earlier signal buckets, not earlier snapshots: up to 30 days of history, at least 18 covered five-minute buckets across three dates for the same local hour and deployment. Rapid changes need no historical baseline.
+- No runtime edits, service restart, commit, or push during backfill. Base commit f3d3cf8; next: ongoing hourly scheduler after API restart, as previously documented.
+
 ## Electric Sea snapshot commit handoff
 - User requested committing the implementation, naming updates, tests, and documentation on main from deb804e. Validation remains as recorded below; whitespace check passed. Ignored .env and scratch artifacts are excluded.
 - Next: restart API to load the hourly scheduler and inspect subsequent snapshots. No push or service restart performed in this commit task; no new blockers.
