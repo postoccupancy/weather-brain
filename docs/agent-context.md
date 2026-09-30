@@ -9,7 +9,13 @@
 - Use workspace or repo settings for stable editor/runtime configuration.
 
 ## Current Objective
-- Commit all remaining Weather Brain changes, including signal-bucket timeseries support, tests, documentation, and the existing README edits.
+- Review existing snapshot/vector structures and show actual stored documents before adapting them to Electric Sea. Read-only investigation completed; implementation not requested yet.
+
+## Snapshot review
+- Read-only PostgreSQL inspection found 498 `snapshots` archive rows (all archive embedding columns NULL) and 703 documents in LangChain collection `esp32_rag`. Latest three document texts match between the archive and vector collection: June 19, June 16, and April 20, 2026 UTC windows.
+- Current builder reads legacy `readings` for configured `esp32-s3-devkit-001`, produces hourly temperature/humidity summaries and metadata, and assumes 1800 observations/hour for coverage. Default index framework is LangChain; scheduler requests the previous completed hour every 3600 seconds.
+- Archive text is upserted separately from vector indexing. LlamaIndex alternative expects `data_esp32_rag`, which was absent from inspected public tables; literature vector table exists separately. Existing collection/archive counts differ; cause not investigated in this examples-only review.
+- Electric Sea adaptation needs generic node/signal/deployment metadata, sufficient-statistic pooling and revised coverage semantics. No runtime, schema, database content, embeddings, indexing or service startup changes were made. Only this continuity note changed.
 
 ## Remaining changes commit
 - User requested all remaining Weather Brain changes be committed on `main`, from `1888c78`. Deployment-management commits are Weather Brain `1888c78` and Electric Sea `ea2e9d0`.
