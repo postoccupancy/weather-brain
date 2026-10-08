@@ -338,9 +338,17 @@ bool sendOscPacket(OscWriter& writer) {
   return true;
 }
 
-bool sendUsbFrame(const void* data, size_t length) {
-  if (!Serial || !usbMutex || xSemaphoreTake(usbMutex, pdMS_TO_TICKS(100)) != pdTRUE) return false;
-  size_t written = Serial.write(static_cast<const uint8_t*>(data), length);
+bool sendUsbFrame(const void* data, size_t length, TickType_t mutexWait = pdMS_TO_TICKS(100)) {
+  if (!usbMutex || xSemaphoreTake(usbMutex, mutexWait) != pdTRUE) return false;
+  const uint8_t* bytes = static_cast<const uint8_t*>(data);
+  size_t written = 0;
+  const uint32_t deadline = millis() + 1000;
+  while (written < length) {
+    const size_t count = Serial.write(bytes + written, length - written);
+    if (count) written += count;
+    else if (static_cast<int32_t>(deadline - millis()) > 0) vTaskDelay(1);
+    else break;
+  }
   if (written == length) Serial.flush();
   xSemaphoreGive(usbMutex);
   return written == length;
@@ -534,7 +542,7 @@ void transportTask(void*) {
   while (true) {
     vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TRANSPORT_INTERVAL_MS));
     if (otaInProgress || diagnosticIsolation || !buildBatch(transportWorkPacket)) continue;
-    if (sendUsbFrame(transportWorkPacket.data, transportWorkPacket.length)) usbScalarPacketsSent++;
+    if (sendUsbFrame(transportWorkPacket.data, transportWorkPacket.length, portMAX_DELAY)) usbScalarPacketsSent++;
     else usbScalarSendFailures++;
     if (webSocketClients && xQueueSend(transportQueue, &transportWorkPacket, 0) != pdTRUE) {
       xQueueReceive(transportQueue, &transportStalePacket, 0); transportDrops++;
