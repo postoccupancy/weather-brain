@@ -142,6 +142,7 @@ Clone the repository and install dependencies:
 
 Set up environment variables (see **Configuration** below), then start the API:
 
+`.\.venv\Scripts\Activate.ps1 // if needed`
 `cd server`  
 `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
 
