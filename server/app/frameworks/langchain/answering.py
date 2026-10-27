@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any
+from datetime import datetime
+from fastapi import HTTPException
 
 from langchain_core.documents import Document
 
@@ -12,6 +14,7 @@ from app.execution.answering.shared import (
 from app.frameworks.langchain.runtime import get_llm, get_retriever
 from app.planning.planner import plan_query, resolve_time_range
 from app.retrieval.vector.snapshots import SnapshotRecord, fetch_snapshots_between
+from app.retrieval.structured.deployment_corrections import snapshot_warnings
 
 
 AGG_METRICS = {
@@ -35,6 +38,15 @@ def _snapshot_records_to_documents(records: list[SnapshotRecord]) -> list[Docume
 
 
 def _documents_to_answer_contexts(documents: list[Document]) -> list[AnswerContext]:
+    warnings = snapshot_warnings() if documents else []
+    for document in documents:
+        md = document.metadata or {}
+        node = md.get('node_id') or md.get('device_id')
+        start = md.get('window_start')
+        if isinstance(start, str):
+            start = datetime.fromisoformat(start)
+        if any(w['node_id'] == node and (start is None or w['start'] <= start < w['end']) for w in warnings):
+            raise HTTPException(status_code=409, detail='Snapshot deployment context is being rebuilt. Inspect the node deployment correction-status endpoint before retrying.')
     return [
         AnswerContext(
             text=document.page_content,

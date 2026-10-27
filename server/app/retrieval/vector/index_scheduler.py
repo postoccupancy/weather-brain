@@ -15,6 +15,11 @@ def index_loop(interval_seconds: int = 3600) -> None:
     print("Starting indexing loop...")
     while True:
         try:
+            from app.retrieval.vector.correction_rebuilds import process_correction_rebuilds
+            process_correction_rebuilds()
+        except Exception:
+            logging.getLogger(__name__).exception('Correction rebuild processing unavailable; will retry')
+        try:
             source = os.getenv("SNAPSHOT_SOURCE", "signal_buckets")
             result = index_snapshots(
                 db_url=DATABASE_URL,

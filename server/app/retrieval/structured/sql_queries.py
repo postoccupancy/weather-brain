@@ -71,6 +71,9 @@ def insert_signal_buckets(
                     (node_id,),
                 )
                 cur.execute(
+                    "SELECT id FROM nodes WHERE id = %s FOR SHARE", (node_id,),
+                )
+                cur.execute(
                     "SELECT id FROM node_deployments "
                     "WHERE node_id = %s AND ended_at IS NULL "
                     "ORDER BY started_at DESC LIMIT 1",

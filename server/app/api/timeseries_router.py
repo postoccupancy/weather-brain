@@ -16,7 +16,13 @@ router = APIRouter()
 RAW_DATA_TABLE = os.getenv("RAW_DATA_TABLE", "readings")
 
 
-@router.get("/timeseries", dependencies=[Depends(require_status_token)])
+@router.get("/timeseries", dependencies=[Depends(require_status_token)], description=(
+    'Default table=readings is legacy sensor data. Current Electric Sea archives use '
+    'table=signal_buckets and require device_id (node ID) and signal_id. '
+    'table=snapshots returns persisted hourly documents plus pending correction warnings; '
+    'generation, archive storage, vector indexing, retrieval and scheduling are separate. '
+    'Deployment IDs reference /nodes/{node_id}/deployments/{deployment_id}. '
+    'Database hosting (Supabase or local PostgreSQL) is independent of archive source.'))
 def get_readings(
     limit: int = Query(default=100, lte=10000),
     offset: int = Query(default=0, ge=0),

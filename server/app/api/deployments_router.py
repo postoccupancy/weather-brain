@@ -7,6 +7,7 @@ import psycopg
 
 from app.api.auth import require_ingest_token, require_status_token
 from app.retrieval.structured import deployments
+from app.retrieval.structured import deployment_corrections as corrections
 
 router = APIRouter(prefix="/nodes")
 NodeId = Annotated[str, Path(min_length=1, max_length=255)]
@@ -74,3 +75,48 @@ def change(node_id: NodeId, payload: ChangeDeployment):
 @router.post('/{node_id}/deployment/end', dependencies=[Depends(require_ingest_token)])
 def end(node_id: NodeId, payload: EndDeployment):
     return manage(node_id, 'end', payload)
+
+
+class Correction(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    old_deployment_id: UUID
+    new_deployment_id: UUID
+    boundary: AwareDatetime
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class ApplyCorrection(Correction):
+    preview_token: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+@router.get('/{node_id}/deployments', dependencies=[Depends(require_status_token)],
+            description='Historical deployment records referenced by archived signal bucket deployment IDs.')
+def get_history(node_id: NodeId):
+    return {'deployments': execute(lambda: corrections.history(node_id))}
+
+
+@router.get('/{node_id}/deployments/{deployment_id}', dependencies=[Depends(require_status_token)])
+def get_historical(node_id: NodeId, deployment_id: UUID):
+    record = execute(lambda: corrections.history(node_id, deployment_id))
+    if record is None:
+        raise HTTPException(status_code=404, detail='Deployment not found for this node')
+    return {'deployment': record}
+
+
+@router.post('/{node_id}/deployment/correction-preview', dependencies=[Depends(require_status_token)],
+             description='Read-only adjacent historical boundary preview, explicit source bucket counts, and snapshot rebuild scope. Does not fill NULL associations.')
+def preview_correction(node_id: NodeId, payload: Correction):
+    return execute(lambda: corrections.correct(node_id, payload.old_deployment_id,
+        payload.new_deployment_id, payload.boundary, payload.reason))
+
+
+@router.post('/{node_id}/deployment/correction-apply', dependencies=[Depends(require_ingest_token)],
+             description='Atomically apply a reviewed preview and audit it. Snapshot rebuilding is pending until the existing scheduler completes it; inspect correction-status. Stale previews return 409.')
+def apply_correction(node_id: NodeId, payload: ApplyCorrection):
+    return execute(lambda: corrections.correct(node_id, payload.old_deployment_id,
+        payload.new_deployment_id, payload.boundary, payload.reason, preview_token=payload.preview_token))
+
+
+@router.get('/{node_id}/deployment/correction-status', dependencies=[Depends(require_status_token)])
+def get_corrections(node_id: NodeId):
+    return {'corrections': execute(lambda: corrections.correction_status(node_id))}

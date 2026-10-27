@@ -1,5 +1,11 @@
 # Electric Sea hourly snapshots
 
+For API source selection see [archive pathways](archive-pathways.md). For changed
+historical deployment boundaries see [correction and rebuild recovery](deployment-corrections.md).
+Correction invalidation is persisted in the audit table and consumed by this
+same scheduler. Generation, archive persistence, vector indexing, retrieval, and
+scheduling are independent checks; a row in one store does not verify the others.
+
 The existing snapshot entry point now accepts `source="signal_buckets"`. It
 delegates Electric Sea SQL/formatting to `electric_sea_snapshots.py` and reuses
 `SnapshotRecord`, `snapshot_events.describe_events`, the configured Ollama
@@ -86,6 +92,11 @@ are generated and dimension/finite-value checked before writes. Under a writer
 advisory lock, archive and vector upserts occur in the same PostgreSQL transaction;
 failure rolls both back. The writer refuses to replace a legacy archive row or a
 vector ID in another collection. No legacy vectors are deleted.
+Each newly built document carries a deployment-history fingerprint. The writer
+locks the node and verifies that fingerprint after embedding, rejecting documents
+built before a concurrent deployment edit. Pending correction ranges remain
+visible in `/timeseries?table=snapshots` and are excluded from snapshot answering
+until rebuilt. Historical correction does not change the stable document ID.
 
 Before this change, inspection found 498 archived windows and 703 legacy vector
 documents: 205 windows had two vectors each. Every archive window had a vector,

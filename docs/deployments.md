@@ -1,6 +1,6 @@
 # Node deployments
 
-Weather Brain owns node deployment/location state. No schema migration is needed:
+Weather Brain owns node deployment/location state. For ordinary changes, no additional schema migration is needed:
 the existing `nodes` and `node_deployments` tables already have the required fields
 and a unique partial index enforcing one open deployment per node.
 
@@ -72,13 +72,13 @@ WEATHER_BRAIN_INGEST_TOKEN=YOUR_EXISTING_INGEST_TOKEN
 WEATHER_BRAIN_STATUS_TOKEN=YOUR_EXISTING_STATUS_TOKEN
 ```
 
-The operator enters that status token in the deployment control. It is kept only
-in page memory, never embedded in public JavaScript or stored in local/session
-storage. The proxy validates it, restricts node IDs to the two dashboards, checks
-browser Origin, and supplies the ingestion token server-side for writes. This
-explicitly grants holders of the configured status token deployment-management
-access through this proxy. It does not grant access to arbitrary upstream routes.
-No new secret type, deployment cache, or deployment state is introduced on the Pi.
+The operator uses **Unlock admin** with `ELECTRIC_SEA_ADMIN_PASSWORD`. Electric
+Sea issues its existing HttpOnly, SameSite admin-session cookie and checks the
+same-origin admin header for POST operations. Weather Brain status and ingest
+tokens stay on the Pi; browser code never receives them. Public deployment reads
+use the server-held status credential. Preview POSTs require the Electric Sea
+admin session and use status authorization upstream; apply uses ingest authorization.
+The former status-token-in-browser instructions are obsolete.
 
 The location button requests browser geolocation once. The operator can edit or
 clear the coordinates because browser location may differ from sensor location.
@@ -109,6 +109,13 @@ The command does not infer history or expand to all NULL records. A dry-run coun
 can differ from a later apply if ingestion adds matching records in between.
 
 ## Verification
+
+For an already-assigned interval recorded at the wrong time, use
+[historical correction](deployment-corrections.md), not NULL backfill. The new
+audit/rebuild table requires its own migration. Deployment history is readable at
+`GET /nodes/{node_id}/deployments` and individual records at
+`GET /nodes/{node_id}/deployments/{deployment_id}`, both with status authorization.
+See [archive pathways](archive-pathways.md) and [snapshot rebuilding](electric-sea-snapshots.md).
 
 `tests/test_deployments.py` tests auth/validation plus real PostgreSQL lifecycle,
 concurrent-start exclusion, historical preservation, ingestion association and

@@ -1,5 +1,25 @@
 # SQL + LLM analysis of environmental sensor data
 
+## Current archive and deployment operations
+
+The exhibit runs Weather Brain on the Windows PC (port 8000); Electric Sea on
+the Pi forwards signal buckets. Repository code and running processes can differ.
+The Cloud Run and original sensor descriptions below describe earlier setups.
+
+| API | Data |
+| --- | --- |
+| `/latest`, default `/timeseries` | Legacy readings (`/latest` is process memory) |
+| `/timeseries?table=signal_buckets&device_id=indoor-sky&signal_id=temperature` | Current Electric Sea archive |
+| `/timeseries?table=snapshots&device_id=indoor-sky` | Persisted hourly documents, with pending correction warnings |
+| `/nodes/indoor-sky/deployments` | Separate historical deployment records referenced by bucket IDs |
+
+Moving database hosting from Supabase to local PostgreSQL is independent of
+moving ingestion from `readings` to `signal_buckets`. Snapshot generation,
+archive storage, vector indexing, retrieval, and automatic scheduling each need
+verification. See [archive/API guide with PowerShell examples](docs/archive-pathways.md),
+[deployments](docs/deployments.md), [historical correction](docs/deployment-corrections.md),
+and [Electric Sea snapshots](docs/electric-sea-snapshots.md).
+
 This API: 
 1. collects live data from remote, microcontroller-based environmental sensors and stores to a cloud-hosted PostgreSQL database 
 2. provides quantitative time series aggregation and analysis based on SQL queries

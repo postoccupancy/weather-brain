@@ -13,6 +13,7 @@ from psycopg.types.json import Jsonb
 from app.database import DATABASE_URL
 from app.retrieval.vector.snapshot_events import Bucket, EventSettings, describe_events
 from app.retrieval.vector.snapshots import SnapshotRecord
+from app.retrieval.structured.deployment_corrections import fingerprint
 
 
 def _rollups(conn, node, start, end, seconds, events_only=False):
@@ -134,7 +135,9 @@ def build_electric_sea_snapshot_records(*, lookback_hours=3, start_time=None, en
                 history = _rollups(conn, name, day-timedelta(days=30), until+timedelta(hours=1), 300, events_only=True)
                 for hour in dict.fromkeys(r['period'] for r in stats):
                     hour = hour.astimezone(timezone.utc)
-                    records.append(_record(name, hour, [r for r in stats if r['period'] == hour], history, deployments, settings))
+                    record = _record(name, hour, [r for r in stats if r['period'] == hour], history, deployments, settings)
+                    record.metadata['deployment_revision'] = fingerprint(sorted(deployments.values(), key=lambda d: str(d['id'])))
+                    records.append(record)
                 day = until
     return records
 
@@ -160,6 +163,14 @@ def store_electric_sea_snapshots(records, *, db_url=DATABASE_URL, archive='snaps
         conn.execute("SET LOCAL search_path = public, extensions")
         # Serialize all Electric Sea writers, including manual rebuilds and the scheduler.
         conn.execute("SELECT pg_advisory_xact_lock(781904321)")
+        # A correction during build/embedding must not be overwritten by stale text.
+        for node in sorted({r.metadata['node_id'] for r in records}):
+            conn.execute('SELECT id FROM nodes WHERE id=%s FOR SHARE', (node,))
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute('SELECT * FROM node_deployments WHERE node_id=%s ORDER BY id', (node,))
+                revision = fingerprint(cur.fetchall())
+            if any(r.metadata.get('deployment_revision') != revision for r in records if r.metadata['node_id'] == node):
+                raise ValueError('Deployment history changed during snapshot build; rebuild before storing')
         row = conn.execute('SELECT uuid FROM langchain_pg_collection WHERE name=%s', (collection,)).fetchone()
         if not row:
             raise ValueError('Existing snapshot vector collection not found')

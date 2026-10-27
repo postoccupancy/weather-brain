@@ -65,7 +65,8 @@ latest_reading = None
 def ping():
     return {"pong": True, "database_configured": bool(DATABASE_URL)}
 
-@app.get("/latest", dependencies=[Depends(require_status_token)])
+@app.get("/latest", dependencies=[Depends(require_status_token)],
+         description='Latest legacy /ingest reading held in process memory. For current Electric Sea data use /timeseries?table=signal_buckets with device_id and signal_id.')
 def get_latest():
     return latest_reading or {}
 

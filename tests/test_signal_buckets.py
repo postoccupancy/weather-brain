@@ -49,9 +49,10 @@ def test_signal_bucket_insert_uses_active_deployment_and_conflict_key(cursor):
     assert result == db.SignalBucketInsertResult(accepted=2, inserted=1, deployment_id=str(deployment_id))
     statements = [call.args[0] for call in cursor.execute.call_args_list]
     assert "INSERT INTO nodes" in statements[0]
-    assert "ended_at IS NULL" in statements[1]
-    assert "ON CONFLICT (node_id, signal_id, bucket_start) DO NOTHING" in statements[2]
-    assert cursor.execute.call_args_list[2].args[1]["deployment_id"] == deployment_id
+    assert "FOR SHARE" in statements[1]
+    assert "ended_at IS NULL" in statements[2]
+    assert "ON CONFLICT (node_id, signal_id, bucket_start) DO NOTHING" in statements[3]
+    assert cursor.execute.call_args_list[3].args[1]["deployment_id"] == deployment_id
 
 
 def test_signal_bucket_api_reports_duplicate_retry(monkeypatch):

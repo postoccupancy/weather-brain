@@ -63,6 +63,20 @@ def build():
     return build_snapshot_records(source='signal_buckets', start_time=START, end_time=END)
 
 
+def test_history_change_during_embedding_rejects_stale_writer(database):
+    conn, dep = database
+    add(conn, dep, START)
+    conn.commit()
+    records = build()
+    def embed(texts):
+        conn.execute("UPDATE node_deployments SET notes='Changed after build' WHERE id=%s", (dep,))
+        conn.commit()
+        return [[1.,2.,3.] for _ in texts]
+    with pytest.raises(ValueError, match='history changed'):
+        es.store_electric_sea_snapshots(records, embed=embed)
+    assert conn.execute('SELECT count(*) FROM snapshots').fetchone()[0] == 0
+
+
 def test_weighted_statistics_gaps_and_independent_nodes(database):
     conn, dep = database
     add(conn, dep, START, mean=1, sd=1, n=2)

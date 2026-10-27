@@ -73,6 +73,7 @@ def backfill(node_id, deployment_id, start: datetime, end: datetime, *, apply=Fa
     if start.utcoffset() is None or end.utcoffset() is None or start >= end:
         raise ValueError("Require timezone-aware start < end")
     with connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT id FROM nodes WHERE id = %s FOR UPDATE", (node_id,))
         cur.execute("SELECT id FROM node_deployments WHERE id = %s AND node_id = %s FOR SHARE", (deployment_id, node_id))
         if not cur.fetchone():
             raise ValueError("Deployment does not belong to the requested node")

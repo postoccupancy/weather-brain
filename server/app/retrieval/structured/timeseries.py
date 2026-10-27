@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from fastapi import HTTPException
 from app.retrieval.structured.signal_timeseries import get_signal_timeseries
+from app.retrieval.structured.deployment_corrections import snapshot_warnings
 
 from app.retrieval.structured.sql_queries import (
     get_postgres,
@@ -78,7 +79,10 @@ def fetch_timeseries(
         device_id=device_id,
         order_desc=order_desc,
     )
-    return {"ok": True, table: rows}
+    result = {"ok": True, table: rows}
+    if table == SNAPSHOT_DATA_TABLE:
+        result['snapshot_corrections'] = snapshot_warnings(device_id)
+    return result
 
 
 def fetch_timeseries_summary(
