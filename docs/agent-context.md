@@ -1,7 +1,17 @@
 # Agent Context
 
 ## Last Updated
-- 2026-10-26
+- 2026-11-05
+
+## OTA capability check
+- User requested committing the Windows deployment compatibility change and session notes on main from `53d8854`. Validation remains the successful USB build, SSH/SCP checks, Bash syntax and macOS static review recorded below; whitespace check passed. No push or deployment requested. Next: deploy only when authorized; use `git log -1` for the resulting commit.
+- macOS compatibility review: added tool selection runs only for `OSTYPE` matching `msys*|cygwin*`; macOS `darwin*` keeps the original `$HOME/.platformio/penv/bin/pio`, unchanged PATH/native SSH credentials, and existing `PIO` override. No new Bash features beyond the existing script's requirements. Static review only; no macOS runtime available. From macOS repo root use `bash device/scripts/deploy_usb_via_pi.sh` after deployment authorization, with local secrets/PlatformIO and Pi SSH access available. No deployment performed during review.
+- 2026-11-05 SSH diagnosis: sandbox PowerShell runs as `desktop-rcikk3f\codexsandboxoffline` with `USERPROFILE=C:\Users\PC1`; PATH resolves SSH/SCP to `C:\Program Files\OpenSSH`. Verbose SSH fails at TCP connect to Tailscale `100.118.138.43:22` before authentication. Outside-sandbox execution succeeds and native SSH automatically uses `C:\Users\PC1\.ssh\id_ed25519`; no new keys or SSH config changes needed.
+- Updated `device/scripts/deploy_usb_via_pi.sh` Windows Git Bash tool selection to prefer native Windows OpenSSH and use PlatformIO `penv/Scripts/platformio.exe`. PowerShell invocation from repo root after deployment authorization: `& 'C:\Program Files\Git\bin\bash.exe' device/scripts/deploy_usb_via_pi.sh`. Agent execution needs outside-sandbox permission for network and PlatformIO home writes.
+- Validation: script syntax/tool-selection prefix passed; native SSH authentication and SCP text-file round trip passed with identical SHA256 (remote probe removed); USB build succeeded (858281 bytes reported flash usage); boot_app0 exists. Pi esptool 5.3.1, expected USB by-id link to ttyACM0, serial read/write permission and passwordless sudo confirmed. Router remained active with PID 821 and start time Nov 1 15:15:55 PST. No serial port opened, flash, stop, or restart performed. Next: user review before deployment; HEAD remains `53d8854`, branch main.
+- User clarified Indoor Sky currently uses USB serial to the Pi and the Electric Sea `/indoor-sky` dashboard. Existing `device/scripts/deploy_usb_via_pi.sh` builds with PlatformIO's USB environment, copies images over SSH, stops the router to release serial, flashes with Pi esptool, and restarts the router. This is the applicable deployment path; Wi-Fi OTA checks do not establish its availability. No flash performed.
+- Confirmed local PlatformIO Core 6.2.0, existing `device/secrets.py`, and `esp32_s3_devkit_ota` environment with the local extended-timeout uploader. No build or firmware upload requested or performed.
+- `indoor-sky.local` did not resolve from this session. Device reachability must be confirmed using its current IP before uploading. Branch `main`, HEAD `53d8854` at inspection.
 
 ## Historical deployment correction (pending rollout)
 - Production rollout/application completed 2026-10-26. Weather Brain migration/runtime files installed on PC1, compile check passed, and only the `Weather Brain` scheduled task was restarted. Electric Sea proxy/UI runtime files installed on Pi and only `router.service` was restarted at 17:21 PDT; `resident.service` remained active. No weather-music files, SuperCollider/Ableton configuration, firmware, sensor service, resident analyzer, or audio service was changed by this rollout.

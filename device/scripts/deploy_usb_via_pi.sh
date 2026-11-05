@@ -2,7 +2,19 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PIO="${PIO:-$HOME/.platformio/penv/bin/pio}"
+PIO_DEFAULT="$HOME/.platformio/penv/bin/pio"
+case "${OSTYPE:-}" in
+  msys*|cygwin*)
+    # Reuse Windows OpenSSH credentials instead of Git's bundled SSH.
+    WINDOWS_SSH="$(cygpath -u "$PROGRAMFILES")/OpenSSH"
+    if [[ ! -x "$WINDOWS_SSH/ssh.exe" ]]; then
+      WINDOWS_SSH="$(cygpath -u "$WINDIR")/System32/OpenSSH"
+    fi
+    export PATH="$WINDOWS_SSH:$PATH"
+    PIO_DEFAULT="$HOME/.platformio/penv/Scripts/platformio.exe"
+    ;;
+esac
+PIO="${PIO:-$PIO_DEFAULT}"
 PI_HOST="${PI_HOST:-pi@adrian-pi}"
 ENVIRONMENT="${PIO_ENV:-esp32_s3_devkit_usb}"
 SERIAL_DEVICE="${INDOOR_SKY_SERIAL_DEVICE:-/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_24:EC:4A:0E:B1:DC-if00}"
