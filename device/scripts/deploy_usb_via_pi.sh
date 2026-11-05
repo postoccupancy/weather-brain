@@ -37,7 +37,7 @@ ssh "$PI_HOST" "mkdir -p '$REMOTE_DIR'"
 scp "$BUILD/bootloader.bin" "$BUILD/partitions.bin" "$BUILD/firmware.bin" "$BOOT_APP0" "$PI_HOST:$REMOTE_DIR/"
 
 echo "Flashing indoor-sky through the Pi USB connection..."
-ssh "$PI_HOST" bash -s -- "$REMOTE_DIR" "$SERIAL_DEVICE" <<'REMOTE'
+MSYS_NO_PATHCONV=1 ssh "$PI_HOST" bash -s -- "$REMOTE_DIR" "$SERIAL_DEVICE" <<'REMOTE'
 set -Eeuo pipefail
 remote_dir="$1"
 serial_device="$2"

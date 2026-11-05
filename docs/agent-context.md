@@ -3,6 +3,13 @@
 ## Last Updated
 - 2026-11-05
 
+## Indoor Sky USB firmware deployment
+- User requested commit and push of the path-conversion fix and deployment notes on main from `4400d66`. Validation includes successful live USB deployment and post-flash checks below; whitespace check passed. Push targets Weather Brain `origin/main`, including the prior handoff commit. Next: normal operation; no further deployment needed.
+- User reported manually deploying Electric Sea dual-stack change and authorized Indoor Sky firmware deployment. PlatformIO USB build flashed successfully through Pi esptool 5.3.1, all four image hashes verified, hard reset completed, and router restarted normally (PID 3510). Running firmware SHA `4400d66a2eab`, build `2026-11-05T20:44:02Z`, dirty flag true due to script fix below; no firmware source edits made.
+- First attempt stopped router but failed before flash writes because Git Bash converted remote `/tmp` argument to a Windows path; EXIT trap restored router. Fixed only remote SSH invocation with `MSYS_NO_PATHCONV=1`, then reran successfully. This environment variable is harmless on macOS. Script fix remains uncommitted; no push requested.
+- USB-backed `/indoor-sky/status` verified matching build, healthy BME/mic at ~100/250 Hz, active USB transport, scalar packets advancing 144 to 304, zero scalar-send failures/transport drops/pacer drops. Startup gap counter remained fixed at one event/four missing packets across checks. Router IPv4 status and IPv6 `/api/status` both responded; wildcard port 3000 confirmed. Device also currently reports Wi-Fi connected, but flashing and status verification used Pi USB pathway.
+- Next: normal operation; commit deployment-script path-conversion fix if requested. No remaining deployment blocker.
+
 ## Electric Sea HTTPS dual-stack binding
 - User requested commit: Electric Sea main `3e89987` (`fix: accept IPv4 and IPv6 HTTPS connections`) contains the binding fix and verification guide; Electric Sea worktree clean. Saving this handoff on Weather Brain main from `c18ee89`. No push, production deployment or restart performed; next remains authorized rollout and production verification.
 - Changed only Electric Sea `router/server.js` HTTPS listen call from IPv4 `0.0.0.0` to `{ port: PORT, host: '::', ipv6Only: false }`; existing HTTPS server/WebSocket attachment, TLS selection, routes and other listeners unchanged. Added `router/HTTPS.md` verification procedure for ss, curl -4/-6, scoped link-local, hostname, dashboard and tunnel checks. No DNS/mDNS/Tailscale/network changes.
