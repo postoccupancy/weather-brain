@@ -76,6 +76,12 @@ I am currently testing three open source agent development frameworks:
 
 ## Project Structure
 
+Weather Brain owns the Windows Python API, PostgreSQL, archives and analysis.
+ESP32-S3 DevKit firmware and Windows/Mac Pi-assisted flashing now live in
+[Indoor Sky](https://github.com/postoccupancy/indoor-sky). The Raspberry Pi router
+and browser interfaces live in [Electric Sea](https://github.com/postoccupancy/electric-sea);
+outdoor ESP32-S3 CAM firmware remains in [Electric Sky](https://github.com/postoccupancy/electric-sky).
+
 `weather-brain/`  
 `├── server/                       # Server root`  
 `│   ├── app/                      # FastAPI application package`  
@@ -88,7 +94,6 @@ I am currently testing three open source agent development frameworks:
 `│   │   ├── external/             # External API provider adapters`  
 `│   │   ├── retrieval/corpus/     # Reference corpus assets used for ingestion`  
 `│   │   └── main.py               # FastAPI entry point`  
-`├── device/                       # MicroPython scripts for ESP32-S3-DevKitC-1`  
 `├── docs/                         # Project documentation and architecture notes`  
 `├── .env.example                  # Example environment vars`  
 `├── requirements.txt              # Python dependencies`  

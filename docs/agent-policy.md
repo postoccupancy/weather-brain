@@ -27,7 +27,10 @@
 - If `docs/agent-context.md` is missing, create it and note that continuity context is unavailable.
 
 ## Workspace Map
-- `esp32_api` is the Python/FastAPI backend.
+- `weather-brain` owns the Windows Python/FastAPI API, PostgreSQL, archives and analysis.
+- Sibling `indoor-sky` owns ESP32-S3 DevKit PlatformIO firmware and Windows/Mac Pi-assisted USB flashing.
+- `electric-sky` owns separate outdoor ESP32-S3 CAM firmware.
+- Sibling `electric-sea` owns the Raspberry Pi Node.js router and browser interfaces.
 - `esp32_ui` is the Next.js/React/TypeScript frontend.
 - `b2b-dashboard-demo` is a separate Next.js/React/TypeScript frontend.
 

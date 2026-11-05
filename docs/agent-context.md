@@ -3,6 +3,19 @@
 ## Last Updated
 - 2026-11-05
 
+## Indoor Sky extraction implemented
+- User authorized implementation, commit and push. Indoor Sky root project imported from Weather Brain fa5d79c, with legacy MicroPython isolated, source provenance and USB/deployment documentation. New history imports no backend history. Destination origin was empty. Commits: `1735b6a` import and `b093a1d` identity tests/validation.
+- build_config.py now uses/asserts PROJECT_DIR as Git root and requires committed HEAD. Original C++/headers/PlatformIO/flash script/uploaders match baseline after line-ending normalization; .gitattributes enforces shell LF. Real secrets provisioned only as ignored local file. Bounded known-secret/token/key scan passed for all 20 candidate tracked files; no binary/generated credential artifacts imported.
+- Windows USB/OTA builds passed; four build-identity tests and all 121 Electric Sea router tests passed. SSH/SCP checksum preflight, Pi esptool/permissions/sudo passed without opening serial. Existing VS Code workspace already includes Indoor Sky; no edit needed. Mac retains original paths but real-host validation remains pending.
+- Weather Brain tracked device files retired after Indoor Sky publication; ignored old .pio and secrets retained privately for rollback. README ownership/links updated in Weather Brain and Electric Sea. Node IDs, protocols, APIs/schema, outdoor Electric Sky and live services unchanged. Router PID 3510/start Nov 5 12:44:50 PST remained unchanged. No flash/restart performed.
+- Next: use sibling indoor-sky for firmware work; macOS validation and any future flash require appropriate host/hardware. User requested push of these changes; see git logs for final handoff/link commits.
+
+## Indoor Sky extraction planning
+- Reviewed all ten tracked device files at `fa5d79c`, local secrets ignore rules, build/deploy/identity paths, legacy MicroPython and sibling references. Exact mapping, security review and staged validation/cutover checklist: `docs/indoor-sky-extraction-plan.md`.
+- Recommended root-level PlatformIO project in existing sibling indoor-sky checkout (only .git, no local commits; origin postoccupancy/indoor-sky). Remote state not queried. Required build_config.py change: use/assert project root for Git rather than project parent. Preserve working script paths, Windows native SSH and MSYS_NO_PATHCONV, board settings and all contracts. Mac execution still requires real-host validation.
+- Plan archives old AM2320/MicroPython main.py and original example under legacy/micropython; missing LCD module remains documented, not recreated. Existing secret/generated-header ignores verified; full candidate-content/history secret scan remains a publication gate.
+- Only planning document and continuity notes changed. No files moved, repositories created/deleted, firmware built/flashed or services restarted. Next: user review before implementing extraction; no commit/push requested.
+
 ## Indoor Sky USB firmware deployment
 - User requested commit and push of the path-conversion fix and deployment notes on main from `4400d66`. Validation includes successful live USB deployment and post-flash checks below; whitespace check passed. Push targets Weather Brain `origin/main`, including the prior handoff commit. Next: normal operation; no further deployment needed.
 - User reported manually deploying Electric Sea dual-stack change and authorized Indoor Sky firmware deployment. PlatformIO USB build flashed successfully through Pi esptool 5.3.1, all four image hashes verified, hard reset completed, and router restarted normally (PID 3510). Running firmware SHA `4400d66a2eab`, build `2026-11-05T20:44:02Z`, dirty flag true due to script fix below; no firmware source edits made.
