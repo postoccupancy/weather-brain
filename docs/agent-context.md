@@ -3,6 +3,12 @@
 ## Last Updated
 - 2026-11-05
 
+## Electric Sea HTTPS dual-stack binding
+- User requested commit: Electric Sea main `3e89987` (`fix: accept IPv4 and IPv6 HTTPS connections`) contains the binding fix and verification guide; Electric Sea worktree clean. Saving this handoff on Weather Brain main from `c18ee89`. No push, production deployment or restart performed; next remains authorized rollout and production verification.
+- Changed only Electric Sea `router/server.js` HTTPS listen call from IPv4 `0.0.0.0` to `{ port: PORT, host: '::', ipv6Only: false }`; existing HTTPS server/WebSocket attachment, TLS selection, routes and other listeners unchanged. Added `router/HTTPS.md` verification procedure for ss, curl -4/-6, scoped link-local, hostname, dashboard and tunnel checks. No DNS/mDNS/Tailscale/network changes.
+- Pi Node v20.19.2 isolated HTTPS probe using existing certificate selection on ephemeral port 41121 passed IPv4 loopback, IPv6 loopback, eth0 link-local `fe80::30dd:351:325d:49b2%25eth0`, and IPv4/IPv6 WebSocket echo. Probe listener closed and temporary remote file removed. Local router tests: 97 passed; JS syntax and whitespace checks passed.
+- No production source deployment or router restart performed. Router PID 823/start Nov 5 12:10:01 PST observed before verification; production port 3000 remains IPv4-only until reviewed deployment/restart. Next: user review, then authorized rollout and production/client verification. No commit/push requested.
+
 ## OTA capability check
 - User requested committing the Windows deployment compatibility change and session notes on main from `53d8854`. Validation remains the successful USB build, SSH/SCP checks, Bash syntax and macOS static review recorded below; whitespace check passed. No push or deployment requested. Next: deploy only when authorized; use `git log -1` for the resulting commit.
 - macOS compatibility review: added tool selection runs only for `OSTYPE` matching `msys*|cygwin*`; macOS `darwin*` keeps the original `$HOME/.platformio/penv/bin/pio`, unchanged PATH/native SSH credentials, and existing `PIO` override. No new Bash features beyond the existing script's requirements. Static review only; no macOS runtime available. From macOS repo root use `bash device/scripts/deploy_usb_via_pi.sh` after deployment authorization, with local secrets/PlatformIO and Pi SSH access available. No deployment performed during review.
