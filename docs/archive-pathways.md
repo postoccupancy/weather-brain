@@ -8,7 +8,8 @@
 | `/timeseries?table=snapshots` | Stored hourly snapshot documents; pending correction ranges appear in `snapshot_corrections` |
 | `/nodes/{node_id}/deployments/{deployment_id}` | Historical name, location and interval referenced by a bucket's deployment ID |
 
-Supabase-to-local-PostgreSQL hosting migration is separate from the
+Weather Brain currently runs on the Windows PC with local PostgreSQL; the Pi
+rf-router forwards buckets. The historical Supabase-to-local hosting migration is separate from the
 readings-to-signal_buckets source transition. A successful `/latest` request does
 not verify bucket ingestion. An archived snapshot does not prove its embedding
 exists or that an automatic scheduler is running.

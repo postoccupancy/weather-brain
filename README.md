@@ -21,22 +21,31 @@ verification. See [archive/API guide with PowerShell examples](docs/archive-path
 and [Electric Sea snapshots](docs/electric-sea-snapshots.md).
 
 This API: 
-1. collects live data from remote, microcontroller-based environmental sensors and stores to a cloud-hosted PostgreSQL database 
+1. collects live data from remote, microcontroller-based environmental sensors and stores to local PostgreSQL on the Windows PC
 2. provides quantitative time series aggregation and analysis based on SQL queries
 3. creates a source material database for LLM chat queries from periodic data snapshots and uploaded PDFs and web links
 4. combines numeric data calculations and semantic retrieval in summarizing current conditions and responding to chat queries
 
 ### Hardware
-The MVP prototype uses an Espressif ESP32-S3-DevKitC-1 microcontroller with an AM2320 Digital Temperature & Humidity Sensor (I2C interface). 
+Indoor Sky uses an ESP32-S3 DevKitC-1 (BME280 environmental sensor and INMP441 microphone)
+with USB transport to the Pi. Independent Electric Sky ESP32-S3 CAM firmware provides
+outdoor signals/camera. Electric Sea's rf-router application serves the Resident Frequency
+browser interface at rf.postoccupancy.com and forwards scalar buckets to Weather Brain.
+The retired Pi GPIO distance publisher is not part of this architecture.
+
+Historical prototype: AM2320/MicroPython posted directly to /ingest; that code is archived
+in Indoor Sky legacy/micropython. Earlier Cloud Run and hosted PostgreSQL/Supabase
+deployments are historical, not current setup instructions. Stored legacy readings and
+their API compatibility remain available.
 
 ### Database 
 The application connects directly to local PostgreSQL 17, with pgvector 0.8.0 installed in the `extensions` schema for vector storage and similarity search.
 
 ### Backend Framework
-The backend API uses the Python FastAPI framework, hosted in a Google Cloud Run serverless container on a free tier plan.
+The FastAPI backend runs on the Windows PC on port 8000. It connects directly to local PostgreSQL through DATABASE_URL and uses local Ollama for embeddings/LLM work. Production task/service configuration is managed separately from these source changes.
 
 ### React UI
-The frontend (separate repo - `esp32_ui`) uses the Next.js server-side TypeScript-React framework, hosted on a Vercel free tier plan at https://esp32ui.vercel.app with Material UI design system and components from Devias Material Kit Pro. 
+The separately maintained `esp32_ui` frontend (an earlier UI deployment, not the current Pi dashboard) uses the Next.js server-side TypeScript-React framework, hosted on a Vercel free tier plan at https://esp32ui.vercel.app with Material UI design system and components from Devias Material Kit Pro.
 
 ### LLM Server
 Vector embedding, RAG retrieval, and LLM chat run on a local machine with Ollama. I am testing a variety of free open-weight LLMs running on Ollama, including gemma2 (Google), llama3 (Meta), gpt-oss (OpenAI), and qwen2.5 (Alibaba). For text embedding, I am testing the bge-m3 and nomic-embed-text models. 
@@ -46,7 +55,7 @@ Vector embedding, RAG retrieval, and LLM chat run on a local machine with Ollama
 The normal `/rag/query` path now uses a small explicit SQL/literature orchestrator,
 with deterministic routing and structured timing/source metadata. Snapshot RAG
 remains experimental. See [MVP answering](docs/mvp-answering.md).
-The LLM chat uses a multi-agent framework with Planning, Retrieval, and Execution personas.
+The following Planning/Retrieval/Execution descriptions are conceptual and historical experiments; the normal path uses the explicit orchestrator above.
 
 1. **Planning**
    - interpret the user question

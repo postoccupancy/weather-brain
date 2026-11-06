@@ -196,3 +196,7 @@ Existing Wi-Fi/OTA/status behavior remains unchanged by this extraction.
 
 All validation above is planned unless explicitly identified as an existing check.
 This task performed inspection only, not new builds, SSH probes or hardware tests.
+
+2026-11-06 follow-up: rf-router becomes the application/service name in Electric Sea.
+Its checked-in Indoor dashboard uses USB only; old firmware dashboard/cache support
+remains solely for rollback. See Electric Sea docs/rf-router-migration.md.

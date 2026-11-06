@@ -1,7 +1,27 @@
 # Agent Context
 
 ## Last Updated
-- 2026-11-05
+- 2026-11-06
+
+## rf-router migration commit/push authorization
+- Published Indoor Sky `06a5058` (compatible deployment tooling) and Electric Sea `3302c08` (rf-router/local USB dashboard/distance retirement). Both origin/main branches advanced successfully; Weather Brain publishes the related architecture/policy/handoff documentation in this task.
+- User reviewed the repository implementation and requested commit/push across Electric Sea, Indoor Sky and Weather Brain. Existing validation remains 128 router tests, 17 firmware/tooling tests, USB/OTA builds, real-browser fixture and staged-unit validation passing; no implementation changes since that validation beyond documentation/policy.
+- New persistent preference: every live deployment, update-related restart and firmware flash must use approved remote-pulled source in a separate clean deployment checkout, not direct transfers/build artifacts from this development workspace. Updated policy/runbooks and Indoor Sky agent guidance. Ignored secrets remain local and excluded.
+- No live operation authorized/performed by this commit task. Next: independently authorized remote-based rollout using Electric Sea docs/rf-router-migration.md. See each repository's git log for the resulting commits.
+
+## rf-router migration implemented, awaiting review
+- User authorized repository implementation and added full retirement of distance.service/GPIO code. Updated Electric Sea migration plan first, then implemented rf-router package/process/systemd rename, old-unit conflict/ordering, resident dependency update, monitoring and canonical local Indoor HTML with strict USB status/restart/PCM. Removed GPIO publisher, requirements, distance unit/log helper and operational/example references; generic OSC and unrelated mathematical distance logic remain.
+- Indoor Sky host deployment now uses a separately testable remote helper selecting one active/enabled old/new service, rejecting ambiguous/masked/transitional states, checking serial exclusivity and preserving failures while verifying router/previously-active resident recovery. Windows native SSH/MSYS and Mac Unix paths retained. Only firmware change is obsolete redirect response text; no flash performed.
+- Tests: 128 Electric Sea tests; 17 Indoor Sky identity/mocked deployment tests; USB/OTA builds; real headless Edge HTTPS/WS plots/delay/PCM/admin/restart-error/offline fixture; edited Bash syntax; staged Pi systemd-analyze verify all passed. Router PID 9813/start Nov 5 16:28:36 PST unchanged before/after; temporary validation units removed. Actual macOS execution, new-unit live ownership/recovery, hardware restart and reboot persistence remain untested/pending authorization.
+- Exact file manifest/results: sibling Electric Sea docs/rf-router-validation.md. Canonical authorized-later cutover/rollback commands: docs/rf-router-migration.md, including distance retirement/backups and single-owner USB guards. Live old router/distance units are untouched. Existing firmware fallback remains only for old-router rollback, not used by new app.
+- Weather Brain current PC/local PostgreSQL docs and historical Cloud Run/AM2320/Supabase labels corrected; policy interpreter guidance updated. Backend routes/schema/ingestion, ports, protocols, IDs, Electric Sky proxy/firmware and network/TLS/tunnel settings unchanged.
+- All changes remain uncommitted/unpushed for user review across Electric Sea, Indoor Sky and Weather Brain. No live deployment, restart, config mutation or flash. Next: review before any commit/push, and separate explicit deployment/reboot authorization before executing runbook; update both Indoor deployment script files on all operator hosts first.
+
+## rf-router / canonical Indoor dashboard audit awaiting approval
+- User requested audit/plan first, then repository implementation after approval; no commit/push until review and no live deployment/restart/config/flash without separate authorization. Exact proposed file changes, cutover commands, rollback and validation gates: sibling Electric Sea `docs/rf-router-migration-plan.md`.
+- Read-only Pi audit: router enabled/active PID 9813 from /home/pi/electric-sea/router, restart always/5s, no drop-ins and no Wants resident; resident enabled/inactive with Requires/After router; distance enabled but failing at obsolete signal-router path (200/CHDIR); controllers disabled/inactive; cloudflared active. Preserve optional-service states; no silent sidecar activation or sensor/controller restart.
+- Plan uses rf-router service/package name, old-unit conflict/order + mask, transitional Indoor Sky script selecting active/enabled service with override, local dashboard and strict fresh USB status/commands/PCM, no Indoor HTTP/cache fallbacks, unchanged Electric Sky proxy/protocols/ports/IDs/schema. Historical provenance stays labelled rather than globally renamed.
+- Fresh audit baseline: 121 Electric Sea tests and four Indoor Sky identity tests passed; flash-script Bash syntax passed. Only audit plan and this continuity note changed; no implementation/live mutation or commit/push. Next: approval for repository implementation, then review tested diffs before any commit or rollout authorization.
 
 ## Indoor Sky extraction implemented
 - User authorized implementation, commit and push. Indoor Sky root project imported from Weather Brain fa5d79c, with legacy MicroPython isolated, source provenance and USB/deployment documentation. New history imports no backend history. Destination origin was empty. Commits: `1735b6a` import and `b093a1d` identity tests/validation.

@@ -1,4 +1,8 @@
 I spent some time this week sorting out a free / open source stack for adding RAG / LLM based on ESP32 temperature / humidity data.
+
+> Historical research/configuration notes. Cloud hosting, Supabase and prototype
+> details below do not describe the current Windows FastAPI/local PostgreSQL
+> deployment. See the [current architecture](../README.md).
  
 ## Ollama 
 Downloads open source models and runs them locally

@@ -35,9 +35,10 @@
 - `b2b-dashboard-demo` is a separate Next.js/React/TypeScript frontend.
 
 ## Backend Notes
-- Use the repo-local virtual environment at `.venv` for Python work in `esp32_api`.
-- The saved workspace should point the Python interpreter at `${workspaceFolder:esp32_api}/.venv/bin/python`.
-- `esp32_api/.vscode/settings.json` already keeps the backend interpreter stable for that folder.
+- Weather Brain Python code is under server/; use the repo-root .venv.
+- On Windows the interpreter is .venv/Scripts/python.exe; on macOS/Linux it is .venv/bin/python.
+- Select the matching interpreter in VS Code for this checkout; old esp32_api workspace paths are historical.
+- Firmware work belongs in sibling indoor-sky; do not recreate device/ here.
 
 ## Frontend Notes
 - `esp32_ui` and `b2b-dashboard-demo` are standard Node/Next.js projects.
@@ -48,4 +49,9 @@
 - Use `apply_patch` for file edits.
 - Prefer ASCII unless an existing file clearly uses Unicode.
 - Keep comments short and only where the code would otherwise be hard to follow.
+
+## Production Source
+- Live deployments, service restarts accompanying updates, and firmware flashing must use approved revisions fetched/pulled from repository remotes, not direct transfers or build artifacts from this development workspace.
+- Use a separate clean deployment checkout on the target/build host; verify its revision against the remote before running operational commands. Keep local secrets provisioned separately and ignored.
+- Commit/push authorization does not authorize live deployment, restart or firmware flashing.
 

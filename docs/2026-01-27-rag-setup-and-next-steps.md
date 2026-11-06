@@ -1,5 +1,9 @@
 Picking up from the previous note where I had set up an open source agent stack in Python and a cloud database for storing vector-embedded documents for the LLM to reference via RAG (retrieval augmented generation). 
 
+> Historical research/configuration notes. Cloud hosting, Supabase and prototype
+> details below do not describe the current Windows FastAPI/local PostgreSQL
+> deployment. See the [current architecture](../README.md).
+
 There are two separate models required for the RAG process:
 1. a text embedding model -- not a full LLM, these are smaller models that take a piece of text and convert it to a vector array. The LLM can then read the vectors to determine if the text is 'semantically similar' to a given user question. For this agent I am using the 'nomic-text-embed' model from the Ollama library.
 2. a large language model -- these are pretrained chatbot models that you can constrain to certain inputs and outputs. When building an agent, you aren't 'training' an AI, you are customizing it and orchestrating its actions, primarily via 'prompt engineering.' I have been testing a few different open source / open weight LLMs from the Ollama library, more on that below.
